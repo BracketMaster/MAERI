@@ -11,7 +11,8 @@ version = '0.1'
 
 install_requires = [
     'nmigen @ git+https://github.com/nmigen/nmigen.git',
-    'nmigen_visualiser @ git+https://github.com/BracketMaster/nmigen_visualiser',
+    'luna @ git+https://github.com/greatscottgadgets/luna',
+    'termcolor',
     #'mkdocs',
     'numpy',
 ]
