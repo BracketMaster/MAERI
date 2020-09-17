@@ -1,6 +1,6 @@
 # MAERI 0.1
 
-[Not yet ready]
+[Not yet ready!]
 
 An end to end implementation of an ML CNN accelerator.
 
@@ -11,6 +11,11 @@ without reconfiguring.
  - 100% FOSS. Even the FPGA PNR and Synth tools
 (which were reverse engineered).
  - RTL extensively **formally** verified.
+
+# Overview
+Below is a high level overview of the hardware.
+
+![High level overview](docs/high_level.svg)
 
 # Dependencies
 
