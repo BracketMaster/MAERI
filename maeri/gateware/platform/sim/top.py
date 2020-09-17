@@ -3,17 +3,17 @@ from nmigen import Record, Elaboratable
 
 from luna.gateware.stream import StreamInterface
 
-#from mem import Mem
-from store import Store
-from load import Load
-from serial_link import SerialLink
-from interface_controller import InterfaceController
-from load_afifo import LoadAfifo
-from store_afifo import StoreAfifo
-from status_unit import StatusUnit
+from maeri.gateware.platform.sim.mem import Mem
+from maeri.gateware.platform.generic.store import Store
+from maeri.gateware.platform.generic.load import Load
+from maeri.gateware.platform.generic.serial_link import SerialLink
+from maeri.gateware.platform.generic.interface_controller import InterfaceController
+from maeri.gateware.platform.generic.load_afifo import LoadAfifo
+from maeri.gateware.platform.generic.store_afifo import StoreAfifo
+from maeri.gateware.platform.generic.status_unit import StatusUnit
 
-from domains import comm_domain, comm_period
-from domains import compute_domain, compute_period
+from maeri.common.domains import comm_domain, comm_period
+from maeri.common.domains import compute_domain, compute_period
 
 class Top(Elaboratable):
     def __init__(self, sim=False, max_packet_size=32, mem_depth=1024 + 512 + 256):
@@ -70,12 +70,12 @@ class Top(Elaboratable):
         m.submodules.status_unit = status_unit = self.status_unit
 
         # interface_controller <> serial_link
-        m.d.comb += interface_controller.rx_link.connect(serial_link.rx)
-        m.d.comb += serial_link.tx.connect(interface_controller.tx_link)
+        m.d.comb += serial_link.rx.connect(interface_controller.rx_link)
+        m.d.comb += interface_controller.tx_link.connect(serial_link.tx)
 
         # connect up store unit
         # (interface_controller serial) <> (store_unit serial)
-        m.d.comb += store_unit.rx.connect(interface_controller.rx_ldst)
+        m.d.comb += interface_controller.rx_ldst.connect(store_unit.rx)
         # (interface_controller upload control) <> (store_unit upload control)
         m.d.comb += store_unit.control.connect(interface_controller.download_control)
         # store unit <> afifo
@@ -85,7 +85,7 @@ class Top(Elaboratable):
 
         # connect up load unit
         # (interface_controller serial) <> (load_unit serial)
-        m.d.comb += interface_controller.tx_ldst.connect(load_unit.tx)
+        m.d.comb += load_unit.tx.connect(interface_controller.tx_ldst)
         # (interface_controller upload control) <> (load_unit upload control)
         m.d.comb += load_unit.control.connect(interface_controller.upload_control)
         # load unit <> afifo
@@ -108,21 +108,3 @@ class Top(Elaboratable):
         rx = [self.serial_link.rx[sig] for sig in self.serial_link.rx.fields]
         tx = [self.serial_link.tx[sig] for sig in self.serial_link.tx.fields]
         return rx + tx
-
-if __name__ == "__main__":
-        from luna.gateware.platform.tinyfpga import TinyFPGABxPlatform
-        top = Top(sim=False, max_packet_size=32)
-        platform = TinyFPGABxPlatform()
-
-        # don't map one AFIFO per BRAM
-        with open("brams.txt") as f:
-            platform.add_file("brams.txt", f.read())
-
-        platform.build(top, do_program=True, 
-                synth_opts=" -run begin:map_bram",
-                script_after_synth=\
-                    "memory_bram -rules brams.txt\n" + 
-                    "techmap -map +/ice40/brams_map.v\n" +
-                    "ice40_braminit\n" + 
-                    "synth_ice40 -run map_ffram:\n"
-                    )

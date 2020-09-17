@@ -3,7 +3,7 @@ from nmigen.sim import Simulator, Delay
 from nmigen.sim import Settle, Tick
 from maeri.common.config import engine, max_packet_size, vcd
 
-from maeri.gateware.platform.generic.top import Top
+from maeri.gateware.platform.sim.top import Top
 
 from maeri.gateware.platform.sim.serial_model import inject_packet, recieve_packet
 
@@ -15,10 +15,10 @@ from json import loads
 
 class SimDriver():
     def __init__(self):
-        serialmem = Top(sim=True, max_packet_size=max_packet_size)
+        top = Top(sim=True, max_packet_size=max_packet_size)
         dut = Module()
-        dut.submodules.serialmem = serialmem
-        self.serialmem = serialmem
+        dut.submodules.top = top
+        self.top = top
 
         self.sim = sim = Simulator(dut, engine=engine)
         sim.add_clock(comm_period, domain=comm_domain)
@@ -38,7 +38,7 @@ class SimDriver():
     
     def start_compute(self):
         def send():
-            yield from inject_packet(b"do_start", self.serialmem.serial_link.rx)
+            yield from inject_packet(b"do_start", self.top.serial_link.rx)
 
         self.sim.add_process(send)
         self.sim.run()
@@ -46,7 +46,7 @@ class SimDriver():
     def get_config(self):
         
         def send():
-            yield from inject_packet(b"r_config", self.serialmem.serial_link.rx)
+            yield from inject_packet(b"r_config", self.top.serial_link.rx)
 
         self.sim.add_process(send)
         self.sim.run()
@@ -73,7 +73,7 @@ class SimDriver():
     def get_status(self):
         
         def send():
-            yield from inject_packet(b"r_status", self.serialmem.serial_link.rx)
+            yield from inject_packet(b"r_status", self.top.serial_link.rx)
 
         self.sim.add_process(send)
         self.sim.run()
@@ -89,10 +89,10 @@ class SimDriver():
         return self.data
     
     def inject(self, data):
-        yield from inject_packet(data, self.serialmem.serial_link.rx, self.max_packet_size)
+        yield from inject_packet(data, self.top.serial_link.rx, self.max_packet_size)
     
     def recieve(self):
-        return (yield from recieve_packet(self.serialmem.serial_link.tx))
+        return (yield from recieve_packet(self.top.serial_link.tx))
 
     def write(self, start_adress, data):
         if (len(data) % self.max_packet_size):

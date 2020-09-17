@@ -3,21 +3,24 @@ from nmigen import Record, Elaboratable
 
 from luna.gateware.stream import StreamInterface
 
-from mem import Mem
-from store import Store
-from load import Load
-from serial_link import SerialLink
-from interface_controller import InterfaceController
-from load_afifo import LoadAfifo
-from store_afifo import StoreAfifo
-from status_unit import StatusUnit
+from maeri.gateware.platform.tinyfpgabx.mem import Mem
+from maeri.gateware.platform.generic.store import Store
+from maeri.gateware.platform.generic.load import Load
+from maeri.gateware.platform.generic.serial_link import SerialLink
+from maeri.gateware.platform.generic.interface_controller import InterfaceController
+from maeri.gateware.platform.generic.load_afifo import LoadAfifo
+from maeri.gateware.platform.generic.store_afifo import StoreAfifo
+from maeri.gateware.platform.generic.status_unit import StatusUnit
 
-from domains import comm_domain, comm_period
-from domains import compute_domain, compute_period
+from maeri.common.domains import comm_domain, comm_period
+from maeri.common.domains import compute_domain, compute_period
 
 class Top(Elaboratable):
-    def __init__(self, sim=False, max_packet_size=32, mem_depth=1024 + 512 + 256):
+    def __init__(self):
+        max_packet_size = 32
         mem_width = 32
+        mem_depth = 1024 + 512 + 256
+
         # config
         config = {}
         config['b_in_packet'] = max_packet_size
@@ -32,8 +35,8 @@ class Top(Elaboratable):
             raise ValueError("MEM_SIZE MUST BE A MULTIPLE OF MAX_PACKET_SIZE")
 
         # instantiate submodules
-        self.mem = mem = Mem(width=mem_width, depth=mem_depth, sim_init=sim)
-        self.serial_link = SerialLink(sim=sim, max_packet_size=max_packet_size)
+        self.mem = mem = Mem(width=mem_width, depth=mem_depth, sim_init=False)
+        self.serial_link = SerialLink(sim=False, max_packet_size=max_packet_size)
         self.load_unit = \
             Load(mem.addr_shape, mem.data_shape, max_packet_size)
         self.store_unit = \
@@ -70,12 +73,12 @@ class Top(Elaboratable):
         m.submodules.status_unit = status_unit = self.status_unit
 
         # interface_controller <> serial_link
-        m.d.comb += interface_controller.rx_link.connect(serial_link.rx)
-        m.d.comb += serial_link.tx.connect(interface_controller.tx_link)
+        m.d.comb += serial_link.rx.connect(interface_controller.rx_link)
+        m.d.comb += interface_controller.tx_link.connect(serial_link.tx)
 
         # connect up store unit
         # (interface_controller serial) <> (store_unit serial)
-        m.d.comb += store_unit.rx.connect(interface_controller.rx_ldst)
+        m.d.comb += interface_controller.rx_ldst.connect(store_unit.rx)
         # (interface_controller upload control) <> (store_unit upload control)
         m.d.comb += store_unit.control.connect(interface_controller.download_control)
         # store unit <> afifo
@@ -85,7 +88,7 @@ class Top(Elaboratable):
 
         # connect up load unit
         # (interface_controller serial) <> (load_unit serial)
-        m.d.comb += interface_controller.tx_ldst.connect(load_unit.tx)
+        m.d.comb += load_unit.tx.connect(interface_controller.tx_ldst)
         # (interface_controller upload control) <> (load_unit upload control)
         m.d.comb += load_unit.control.connect(interface_controller.upload_control)
         # load unit <> afifo
@@ -111,11 +114,13 @@ class Top(Elaboratable):
 
 if __name__ == "__main__":
         from luna.gateware.platform.tinyfpga import TinyFPGABxPlatform
-        top = Top(sim=False, max_packet_size=32)
+        top = Top()
         platform = TinyFPGABxPlatform()
 
         # don't map one AFIFO per BRAM
-        with open("brams.txt") as f:
+        import os
+        folder = os.path.dirname(__file__)
+        with open(f"{folder}/brams.txt") as f:
             platform.add_file("brams.txt", f.read())
 
         platform.build(top, do_program=True, 

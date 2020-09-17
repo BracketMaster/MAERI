@@ -3,7 +3,7 @@ from nmigen import Record, Elaboratable
 
 from luna.gateware.stream import StreamInterface
 
-from maeri.gateware.platform.sim.mem import Mem
+from maeri.gateware.platform.ulx3s.mem import Mem
 from maeri.gateware.platform.generic.store import Store
 from maeri.gateware.platform.generic.load import Load
 from maeri.gateware.platform.generic.serial_link import SerialLink
@@ -16,8 +16,11 @@ from maeri.common.domains import comm_domain, comm_period
 from maeri.common.domains import compute_domain, compute_period
 
 class Top(Elaboratable):
-    def __init__(self, sim=False, max_packet_size=32, mem_depth=1024 + 512 + 256):
+    def __init__(self):
+        max_packet_size = 32
         mem_width = 32
+        mem_depth = 1024 + 512 + 256
+
         # config
         config = {}
         config['b_in_packet'] = max_packet_size
@@ -32,8 +35,8 @@ class Top(Elaboratable):
             raise ValueError("MEM_SIZE MUST BE A MULTIPLE OF MAX_PACKET_SIZE")
 
         # instantiate submodules
-        self.mem = mem = Mem(width=mem_width, depth=mem_depth, sim_init=sim)
-        self.serial_link = SerialLink(sim=sim, max_packet_size=max_packet_size)
+        self.mem = mem = Mem(width=mem_width, depth=mem_depth, sim_init=False)
+        self.serial_link = SerialLink(sim=False, max_packet_size=max_packet_size)
         self.load_unit = \
             Load(mem.addr_shape, mem.data_shape, max_packet_size)
         self.store_unit = \
@@ -110,19 +113,7 @@ class Top(Elaboratable):
         return rx + tx
 
 if __name__ == "__main__":
-        from luna.gateware.platform.tinyfpga import TinyFPGABxPlatform
-        top = Top(sim=False, max_packet_size=32)
-        platform = TinyFPGABxPlatform()
-
-        # don't map one AFIFO per BRAM
-        with open("brams.txt") as f:
-            platform.add_file("brams.txt", f.read())
-
-        platform.build(top, do_program=True, 
-                synth_opts=" -run begin:map_bram",
-                script_after_synth=\
-                    "memory_bram -rules brams.txt\n" + 
-                    "techmap -map +/ice40/brams_map.v\n" +
-                    "ice40_braminit\n" + 
-                    "synth_ice40 -run map_ffram:\n"
-                    )
+        from luna.gateware.platform.ulx3s import ULX3S_85F_Platform
+        top = Top()
+        platform = ULX3S_85F_Platform()
+        platform.build(top, do_program=False)
