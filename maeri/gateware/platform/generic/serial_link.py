@@ -32,7 +32,7 @@ class SerialLink(Elaboratable):
             
             # connect peripherals
             m.d.comb += usb_serial.rx.connect(self.rx)
-            m.d.comb += self.tx.connect.eq(usb_serial.tx)
+            m.d.comb += self.tx.connect(usb_serial.tx)
 
             # ... and always connect by default.
             m.d.comb += usb_serial.connect.eq(1)

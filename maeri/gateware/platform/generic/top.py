@@ -113,17 +113,16 @@ if __name__ == "__main__":
         from luna.gateware.platform.tinyfpga import TinyFPGABxPlatform
         top = Top(sim=False, max_packet_size=32)
         platform = TinyFPGABxPlatform()
-        platform.build(top, do_program=False)
 
         # don't map one AFIFO per BRAM
-        #with open("brams.txt") as f:
-        #    platform.add_file("brams.txt", f.read())
+        with open("brams.txt") as f:
+            platform.add_file("brams.txt", f.read())
 
-        #platform.build(top, do_program=True, 
-        #        synth_opts=" -run begin:map_bram",
-        #        script_after_synth=\
-        #            "memory_bram -rules brams.txt\n" + 
-        #            "techmap -map +/ice40/brams_map.v\n" +
-        #            "ice40_braminit\n" + 
-        #            "synth_ice40 -run map_ffram:\n"
-        #            )
+        platform.build(top, do_program=True, 
+                synth_opts=" -run begin:map_bram",
+                script_after_synth=\
+                    "memory_bram -rules brams.txt\n" + 
+                    "techmap -map +/ice40/brams_map.v\n" +
+                    "ice40_braminit\n" + 
+                    "synth_ice40 -run map_ffram:\n"
+                    )
