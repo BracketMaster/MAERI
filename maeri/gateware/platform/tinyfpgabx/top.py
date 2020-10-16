@@ -1,5 +1,6 @@
 from nmigen import  Signal, Module, DomainRenamer
 from nmigen import Record, Elaboratable
+from nmigen import ClockSignal, ResetSignal, ClockDomain
 
 from luna.gateware.stream import StreamInterface
 
@@ -12,8 +13,7 @@ from maeri.gateware.platform.generic.load_afifo import LoadAfifo
 from maeri.gateware.platform.generic.store_afifo import StoreAfifo
 from maeri.gateware.platform.generic.status_unit import StatusUnit
 
-from maeri.common.domains import comm_domain, comm_period
-from maeri.common.domains import compute_domain, compute_period
+from maeri.common.domains import comm_domain
 
 class Top(Elaboratable):
     def __init__(self):
@@ -46,12 +46,12 @@ class Top(Elaboratable):
             max_packet_size, mem_depth, config)
         self.load_afifo = \
             LoadAfifo(mem.addr_shape, mem.data_shape, max_packet_size=max_packet_size,
-            comm_domain=comm_domain, compute_domain=compute_domain)
+            comm_domain=comm_domain, compute_domain="sync")
         self.store_afifo = \
             StoreAfifo(mem.addr_shape, mem.data_shape, max_packet_size=max_packet_size,
-            comm_domain=comm_domain, compute_domain=compute_domain)
+            comm_domain=comm_domain, compute_domain="sync")
         self.status_unit = \
-            StatusUnit(comm_domain, compute_domain)
+            StatusUnit(comm_domain, "sync")
 
         # parameters
         self.max_packet_size = max_packet_size
@@ -61,7 +61,7 @@ class Top(Elaboratable):
 
         # attach submodules
         m.submodules.serial_link = serial_link = self.serial_link
-        m.submodules.mem = mem = DomainRenamer(compute_domain)(self.mem)
+        m.submodules.mem = mem = DomainRenamer("sync")(self.mem)
         m.submodules.load_unit = load_unit = \
             DomainRenamer(comm_domain)(self.load_unit)
         m.submodules.store_unit = store_unit = \
@@ -114,13 +114,14 @@ class Top(Elaboratable):
 
 if __name__ == "__main__":
         from luna.gateware.platform.tinyfpga import TinyFPGABxPlatform
+        #from maeri.gateware.platform.tinyfpgabx.tinyfpga import TinyFPGABxPlatform
         top = Top()
         platform = TinyFPGABxPlatform()
 
         # don't map one AFIFO per BRAM
         import os
         folder = os.path.dirname(__file__)
-        with open(f"{folder}/brams.txt") as f:
+        with open(f"./{folder}/brams.txt") as f:
             platform.add_file("brams.txt", f.read())
 
         platform.build(top, do_program=True, 

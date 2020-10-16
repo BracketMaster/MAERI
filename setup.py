@@ -13,8 +13,10 @@ install_requires = [
     'nmigen @ git+https://github.com/nmigen/nmigen.git',
     'luna @ git+https://github.com/greatscottgadgets/luna',
     'termcolor',
-    #'mkdocs',
+    'termcolor',
+    'onnx==1.7.0',
     'numpy',
+    'scipy',
 ]
 
 setup(
@@ -27,7 +29,7 @@ setup(
         "License :: OSI Approved :: LGPLv3+",
         "Programming Language :: Python :: 3",
     ],
-    keywords='Keras CNN Accelerator nMigen RTL',
+    keywords='ONNX CNN Accelerator nMigen RTL',
     author='Yehowshua Immanuel',
     author_email='yehowshua@chipeleven.org',
     # TODO : UPDATE!
