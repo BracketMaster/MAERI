@@ -8,12 +8,16 @@ from maeri.compiler.build_graph import build_result
 
 from maeri.compiler.nodes.Conv2 import Conv2
 
+from maeri.compiler.solver import solve_conv
+
 import numpy as np
 
 import onnx
 
 class Compile():
     def __init__(self, model_path, buff_length=128, ports=4):
+        self.buff_length = buff_length
+        self.ports = ports
         model = onnx.load(model_path)
         model = sanitize(model)
         #onnx.save(model, f"{model_path[:-5]}-sanitized.onnx")
@@ -50,17 +54,15 @@ class Compile():
         op_graph = self.op_graph
         op_graph_new = []
 
-        for index in range(len(self.op_graph)):
-            op = self.op_graph[index]
-            if type(op) is Conv2:
-                with LogIndent():
-                    logger.debug("CONV NODE")
-                    op_graph_new += op.split_left_right()
-            else:
-                op_graph_new += [op]
+        with LogIndent():
+            for op in op_graph:
+                if type(op) is Conv2:
+                    op_graph_new += solve_conv(op, self.buff_length, self.ports)
+                else:
+                    # TODO : should be raising error
+                    op_graph_new += [op]
         
         self.op_graph = op_graph_new
-        print(self.op_graph)
     
     def debug(self):
         op_graph = self.op_graph

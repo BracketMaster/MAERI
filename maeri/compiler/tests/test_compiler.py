@@ -1,29 +1,33 @@
 from onnx.helper import make_node
 import numpy as np
 
+# test dimensions
+channels = 3
+kernel_width = 2
+input_shape = 9
+padding = 0
+
+# randomly generate test vectors
 from random import randint
-x_shape = (1,3,4,4)
+x_shape = (1,channels,input_shape,input_shape)
 x_data = [randint(0,4) for num in range(np.prod(x_shape))]
-W_shape = (2,3,2,2)
+W_shape = (2,channels,kernel_width,kernel_width)
 W_data = [randint(0,4) for num in range(np.prod(W_shape))]
 
 x = np.array(x_data).reshape(x_shape).astype(np.float32)
 W = np.array(W_data).reshape(W_shape).astype(np.float32)
 
 # Convolution with padding
-pad = [1]
 node_with_padding = make_node(
     'Conv',
     inputs=['x', 'W'],
     outputs=['y'],
-    kernel_shape=[2, 2],
+    kernel_shape= [kernel_width]*2,
     # Default values for other attributes: 
     # strides=[1, 1], dilations=[1, 1], groups=1
     strides=[1, 1],
-    pads= pad*4
+    pads= [padding]*4
     )
-
-# do np style conv here and assign to y
 
 import onnx
 from onnx.helper import make_tensor_value_info
@@ -32,7 +36,7 @@ from onnx.helper import make_tensor, make_model
 from onnx import AttributeProto, TensorProto, GraphProto
 
 # compute shape of output y
-out_inner_dims = (x.shape[2] + 2*pad[0]) - W.shape[2] + 1
+out_inner_dims = (x.shape[2] + 2*padding) - W.shape[2] + 1
 # out_inner_dims = x.shape[2] - W.shape[2] + 1
 y_shape = [1, W.shape[0], out_inner_dims, out_inner_dims]
 
@@ -64,21 +68,21 @@ res = sess.run(['y'], {'x':x})
 # executor
 from maeri.compiler.compile import Compile
 import numpy as np
-sess = Compile("test.onnx")
+sess = Compile("test.onnx", buff_length=3)
 res_1 = sess.sim(x)
-print(res_1)
 
 # check that the results are the same
 assert((res - res_1).sum() == 0)
 
 # now solve the graph for hardware
 # constraints
+sess = Compile("test.onnx", buff_length=2)
 sess.solve()
+res_2 = sess.sim(x)
 
 # check the output is still the same
-res_2 = sess.sim(x)
 assert((res - res_2).sum() == 0)
-print(res_1)
+print(res_2)
 
 # delete generated model
 import os
