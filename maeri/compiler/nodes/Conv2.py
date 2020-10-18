@@ -15,6 +15,45 @@ class Conv2():
         self.pad_right = pad[2]
         self.pad_bottom = pad[3]
     
+    def split_to_ports(self, no_ports):
+        op_graph = []
+        input_depth = (self.X.slice[2].stop - self.X.slice[2].start)
+
+        # probably already checked this actually...
+        # but again, only allowing square filters and
+        # by extension, square padding
+        assert(self.pad_upper == self.pad_bottom)
+
+        # check that effective filter fits within the 
+        # number of ports, where the effective filter considers
+        # padding
+        filter_depth = self.W.mem_ref.data.shape[2]
+        effective_depth = filter_depth + self.pad_bottom
+        assert(effective_depth <= no_ports)
+
+        # we must split the operator input field depthwise
+        # into new inputs
+        splits = input_depth - filter_depth + 1
+
+        for index in range(splits):
+            input_slice = slice(index, index + filter_depth)
+            input_slice = (self.X.slice[0], self.X.slice[1], input_slice, self.X.slice[3])
+            X_input = Input(input_slice, self.X.mem_ref)
+
+            output_slice = (self.res.slice[0], self.res.slice[1], index, self.res.slice[3])
+            res = Output(output_slice, self.res.mem_ref)
+
+            if index == 0:
+                pad = [self.pad_left, self.pad_upper, self.pad_right, 0]
+            elif index == (splits - 1):
+                pad = [self.pad_left, 0, self.pad_right, self.pad_bottom]
+            else:
+                pad = [self.pad_left, 0, self.pad_right, 0]
+
+            op_graph += [Conv2(X_input, self.W, res, pad)]
+        
+        return op_graph
+    
     def split_left_right(self):
         op_graph = []
         filter_width = self.W.mem_ref.data.shape[2]
@@ -80,9 +119,6 @@ class Conv2():
 
         return op_graph
     
-    def split_up_down(self):
-        pass
-
     def sim(self):
         X = self.X.get_data()
         W = self.W.get_data()
@@ -105,7 +141,7 @@ class Conv2():
         logger.debug("EXECUTING CONV")
         logger.debug(f"X = \n{X_padded}")
         logger.debug(f"W = \n{W}")
-        logger.debug(f"res = \n{res}")
+        logger.debug(f"res = \n{self.res.debug()}")
     
     def debug(self):
         X_raw = self.X.get_data()

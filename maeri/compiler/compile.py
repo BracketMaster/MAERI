@@ -56,6 +56,8 @@ class Compile():
 
         with LogIndent():
             for op in op_graph:
+
+                # Solve Conv2 nodes
                 if type(op) is Conv2:
                     op_graph_new += solve_conv(op, self.buff_length, self.ports)
                 else:

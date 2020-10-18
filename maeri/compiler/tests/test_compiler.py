@@ -2,16 +2,18 @@ from onnx.helper import make_node
 import numpy as np
 
 # test dimensions
-channels = 3
-kernel_width = 2
 input_shape = 9
+channels = 1
+kernel_width = 3
+no_kernels = 1
 padding = 0
+buff_length = 5
 
 # randomly generate test vectors
 from random import randint
 x_shape = (1,channels,input_shape,input_shape)
 x_data = [randint(0,4) for num in range(np.prod(x_shape))]
-W_shape = (2,channels,kernel_width,kernel_width)
+W_shape = (no_kernels,channels,kernel_width,kernel_width)
 W_data = [randint(0,4) for num in range(np.prod(W_shape))]
 
 x = np.array(x_data).reshape(x_shape).astype(np.float32)
@@ -68,7 +70,7 @@ res = sess.run(['y'], {'x':x})
 # executor
 from maeri.compiler.compile import Compile
 import numpy as np
-sess = Compile("test.onnx", buff_length=3)
+sess = Compile("test.onnx", buff_length=buff_length)
 res_1 = sess.sim(x)
 
 # check that the results are the same
@@ -76,7 +78,7 @@ assert((res - res_1).sum() == 0)
 
 # now solve the graph for hardware
 # constraints
-sess = Compile("test.onnx", buff_length=2)
+sess = Compile("test.onnx", buff_length=buff_length)
 sess.solve()
 res_2 = sess.sim(x)
 
