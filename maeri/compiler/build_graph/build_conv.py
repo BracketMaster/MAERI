@@ -56,6 +56,10 @@ def build_conv(conv_node, name_v_mem):
     assert(pads[0] == pads[1] == pads[2] == pads[3])
     pad = pads[0]
 
+    # compiler currently unable to support more padding
+    # than the filter depth
+    assert(pad < filter_dims[2])
+
     ops = []
     mems = []
 

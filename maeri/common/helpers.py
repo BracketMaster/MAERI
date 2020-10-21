@@ -10,7 +10,6 @@ def prefix_record_name(record, prefix):
         obj = record.fields[sig]
         setattr(obj, 'name', prefix + '_' + obj.name)
 
-
 def print_sig(sig, format=None,newline=True):
     """
     allows easy intelligent printing

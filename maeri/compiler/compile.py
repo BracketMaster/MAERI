@@ -7,8 +7,10 @@ from maeri.compiler.build_graph import build_root
 from maeri.compiler.build_graph import build_result
 
 from maeri.compiler.nodes.Conv2 import Conv2
+from maeri.compiler.nodes.Add import Add
 
 from maeri.compiler.solver import solve_conv
+from maeri.compiler.solver import solve_add
 
 import numpy as np
 
@@ -60,11 +62,28 @@ class Compile():
                 # Solve Conv2 nodes
                 if type(op) is Conv2:
                     op_graph_new += solve_conv(op, self.buff_length, self.ports)
+                elif type(op) is Add:
+                    op_graph_new += solve_add(op, self.buff_length, self.ports)
                 else:
                     # TODO : should be raising error
                     op_graph_new += [op]
-        
+        print(f"Original op count : {len(op_graph)}")
+        print(f"Final op count : {len(op_graph_new)}")
         self.op_graph = op_graph_new
+    
+    def bake_offsets(self):
+        # first, build the zero node
+        zeros = np.zeros([self.ports, self.buff_length])
+
+        # the zeros memory is always the first node
+        # on the memory list
+        self.memories.insert(0, zeros)
+
+        offset = len(self.memories[0].data.flatten())
+        self.memories[0].offset = 0
+        for memory in self.memories:
+            memory.offset = offset
+            offset = len(memory.data.flatten())
     
     def debug(self):
         op_graph = self.op_graph

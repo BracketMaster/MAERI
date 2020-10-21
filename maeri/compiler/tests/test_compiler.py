@@ -1,13 +1,32 @@
 from onnx.helper import make_node
 import numpy as np
 
+test_settings = [
+    # input shape
+    9, 
+    # channels
+    1, 
+    # kernel width
+    3, 
+    # number kernels
+    1, 
+    # padding
+    1, 
+    # buff length
+    16,
+    # ports
+    16]
+
+print(f"test_settings = {test_settings}")
+
 # test dimensions
-input_shape = 9
-channels = 1
-kernel_width = 3
-no_kernels = 1
-padding = 0
-buff_length = 5
+input_shape = test_settings[0]
+channels = test_settings[1]
+kernel_width = test_settings[2]
+no_kernels = test_settings[3]
+padding = test_settings[4]
+buff_length = test_settings[5]
+ports = test_settings[6]
 
 # randomly generate test vectors
 from random import randint
@@ -70,7 +89,7 @@ res = sess.run(['y'], {'x':x})
 # executor
 from maeri.compiler.compile import Compile
 import numpy as np
-sess = Compile("test.onnx", buff_length=buff_length)
+sess = Compile("test.onnx", buff_length=buff_length, ports=ports)
 res_1 = sess.sim(x)
 
 # check that the results are the same
@@ -78,13 +97,12 @@ assert((res - res_1).sum() == 0)
 
 # now solve the graph for hardware
 # constraints
-sess = Compile("test.onnx", buff_length=buff_length)
+sess = Compile("test.onnx", buff_length=buff_length, ports=ports)
 sess.solve()
 res_2 = sess.sim(x)
 
 # check the output is still the same
 assert((res - res_2).sum() == 0)
-print(res_2)
 
 # delete generated model
 import os

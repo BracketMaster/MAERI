@@ -16,6 +16,7 @@ install_requires = [
     'termcolor',
     'onnx==1.7.0',
     'numpy',
+    'python-varname',
     'scipy',
 ]
 
