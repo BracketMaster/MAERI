@@ -17,9 +17,11 @@ import numpy as np
 import onnx
 
 class Compile():
-    def __init__(self, model_path, buff_length=128, ports=4):
+    def __init__(self, model_path, buff_length=128, ports=4, mults=64):
         self.buff_length = buff_length
         self.ports = ports
+        self.mults = mults
+
         model = onnx.load(model_path)
         model = sanitize(model)
         #onnx.save(model, f"{model_path[:-5]}-sanitized.onnx")
@@ -61,7 +63,7 @@ class Compile():
 
                 # Solve Conv2 nodes
                 if type(op) is Conv2:
-                    op_graph_new += solve_conv(op, self.buff_length, self.ports)
+                    op_graph_new += solve_conv(op, self.buff_length, self.ports, self.mults)
                 elif type(op) is Add:
                     op_graph_new += solve_add(op, self.buff_length, self.ports)
                 else:

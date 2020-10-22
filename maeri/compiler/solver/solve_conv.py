@@ -35,7 +35,13 @@ def verify_buff_Lengths(nodes, buff_length):
         input_width = (node.X.slice[3].stop - node.X.slice[3].start) + node.pad_left + node.pad_right
         assert(input_width <= buff_length)
 
-def solve_conv(node, buff_length, ports):
+def verify_weight_lengths(nodes, mults):
+    for node in nodes:
+        if not (len(node.W.mem_ref.data.flatten()) <= mults):
+            raise RuntimeError("Weight too large. Compiler does not support" +\
+                " splitting weights.")
+
+def solve_conv(node, buff_length, ports, mults):
     logger.debug("CONV NODE")
     with LogIndent():
 
@@ -52,5 +58,6 @@ def solve_conv(node, buff_length, ports):
         debug_buff_lengths(solved_ops, buff_length)
 
         verify_buff_Lengths(solved_ops, buff_length)
+        verify_weight_lengths(solved_ops, mults)
 
         return solved_ops
