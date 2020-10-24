@@ -113,7 +113,7 @@ class Top(Elaboratable):
         return rx + tx
 
 if __name__ == "__main__":
-        from luna.gateware.platform.ulx3s import ULX3S_85F_Platform
+        from maeri.gateware.platform.ulx3s.ulx3s85f import ULX3S_85F_Platform
         top = Top()
         platform = ULX3S_85F_Platform()
         platform.build(top, do_program=False)

@@ -17,7 +17,7 @@ import numpy as np
 import onnx
 
 class Compile():
-    def __init__(self, model_path, buff_length=128, ports=4, mults=64):
+    def __init__(self, model_path, buff_length=128, ports=4, mults=64, wordsize=2):
         self.buff_length = buff_length
         self.ports = ports
         self.mults = mults

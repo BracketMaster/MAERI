@@ -37,8 +37,9 @@ def verify_buff_Lengths(nodes, buff_length):
 
 def verify_weight_lengths(nodes, mults):
     for node in nodes:
-        if not (len(node.W.mem_ref.data.flatten()) <= mults):
-            raise RuntimeError("Weight too large. Compiler does not support" +\
+        weight_length = len(node.W.get_data().flatten())
+        if not (weight_length <= mults):
+            raise RuntimeError(f"Weight length {weight_length} too large. Compiler does not support" +\
                 " splitting weights.")
 
 def solve_conv(node, buff_length, ports, mults):

@@ -124,7 +124,7 @@ if __name__ == "__main__":
         with open(f"./{folder}/brams.txt") as f:
             platform.add_file("brams.txt", f.read())
 
-        platform.build(top, do_program=True, 
+        platform.build(top, do_program=False, 
                 synth_opts=" -run begin:map_bram",
                 script_after_synth=\
                     "memory_bram -rules brams.txt\n" + 

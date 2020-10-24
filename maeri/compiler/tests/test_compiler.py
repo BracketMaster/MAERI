@@ -3,19 +3,19 @@ import numpy as np
 
 test_settings = [
     # input shape
-    9, 
+    28, 
     # channels
     1, 
     # kernel width
-    3, 
+    5, 
     # number kernels
     1, 
     # padding
-    1, 
+    2, 
     # buff length
-    16,
+    8,
     # ports
-    16]
+    8]
 
 print(f"test_settings = {test_settings}")
 

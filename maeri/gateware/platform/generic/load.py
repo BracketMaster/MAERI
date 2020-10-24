@@ -76,9 +76,10 @@ class Load(Elaboratable):
                                 m.d.sync += byte_select.eq(byte_select + 1)
                     with m.Else():
                         m.d.comb += tx.valid.eq(1)
-                        m.d.sync += byte_select.eq(byte_select + 1)
                         with m.If(byte_select == (bytes_in_line - 1)):
                             m.d.sync += byte_select.eq(0)
+                        with m.Else():
+                            m.d.sync += byte_select.eq(byte_select + 1)
 
                 # start pushing read requests onto AFIFO
                 with m.If(offset < control.len):
