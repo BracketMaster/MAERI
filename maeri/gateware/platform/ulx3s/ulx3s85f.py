@@ -35,6 +35,8 @@ class ULX3SDomainGenerator(Elaboratable):
 
         # Grab our default input clock.
         input_clock = platform.request(platform.default_clk, dir="i")
+        a = platform.request("sdram").a
+        [print(sig) for sig in a]
 
         # Create our domains; but don't do anything else for them, for now.
         m.domains.sync   = ClockDomain()

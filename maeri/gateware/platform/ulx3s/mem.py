@@ -41,40 +41,83 @@ class Mem(Elaboratable):
         m.d.comb += self.read_port1.data.eq(self.__rp.data)
         m.d.comb += self.read_port2.data.eq(self.__rp.data)
 
-        # read port data always available one cycle 
-        # after read request
-        m.d.sync += self.read_port1.valid.eq(self.read_port1.rdy)
-        m.d.sync += self.read_port2.valid.eq(self.read_port2.rdy)
+        read_condition = (self.read_port1.rdy | self.read_port2.rdy)
+        write_condition = (self.write_port1.rdy | self.write_port2.rdy)
 
-        # acknowledge that write has occured
-        m.d.comb += self.write_port1.ack.eq(self.write_port1.rdy)
-        m.d.comb += self.write_port2.ack.eq(self.write_port2.rdy)
-        
-        with m.If(self.read_port1.rq):
-            self.do_read(self.read_port1)
-        with m.Elif(self.read_port2.rq):
-            self.do_read(self.read_port2)
+        read_complete = Signal()
+        write_complete = Signal()
 
-        with m.If(self.write_port1.rq):
-            self.do_write(self.write_port1)
-        with m.Elif(self.write_port2.rq):
-            self.do_write(self.write_port2)
+        m.d.sync += read_complete.eq(read_condition)
+        m.d.comb += write_complete.eq(write_condition)
+
+        with m.FSM(name="Mem_FSM"):
+            with m.State("IDLE"):
+                with m.If(self.read_port1.rq):
+                    m.d.comb += self.do_read(self.read_port1)
+                    with m.If(read_complete):
+                        m.d.comb += self.read_port1.valid.eq(1)
+                    with m.Else():
+                        m.next = "SERVICING_PORT1_READ"
+                
+                with m.Elif(self.read_port2.rq):
+                    m.d.comb += self.do_read(self.read_port2)
+                    with m.If(read_complete):
+                        m.d.comb += self.read_port2.valid.eq(1)
+                    with m.Else():
+                        m.next = "SERVICING_PORT2_READ"
+                
+                with m.Elif(self.write_port1.rq):
+                    m.d.comb += self.do_write(self.write_port1)
+                    with m.If(write_complete):
+                        m.d.comb += self.write_port1.ack.eq(1)
+                    with m.Else():
+                        m.next = "SERVICING_PORT1_WRITE"
+
+                with m.Elif(self.write_port2.rq):
+                    m.d.comb += self.do_write(self.write_port2)
+                    with m.If(write_complete):
+                        m.d.comb += self.write_port2.ack.eq(1)
+                    with m.Else():
+                        m.next = "SERVICING_PORT2_WRITE"
+            
+            with m.State("SERVICING_PORT1_READ"):
+                with m.If(read_complete):
+                    m.d.comb += self.read_port1.valid.eq(1)
+                    m.next = "IDLE"
+
+            with m.State("SERVICING_PORT2_READ"):
+                with m.If(read_complete):
+                    m.d.comb += self.read_port2.valid.eq(1)
+                    m.next = "IDLE"
+
+            with m.State("SERVICING_PORT1_WRITE"):
+                with m.If(write_complete):
+                    m.d.comb += self.write_port1.ack.eq(1)
+                    m.next = "IDLE"
+
+            with m.State("SERVICING_PORT2_WRITE"):
+                with m.If(write_complete):
+                    m.d.comb += self.write_port2.ack.eq(1)
+                    m.next = "IDLE"
+
 
         return m
     
     def do_read(self, read_port):
-        m = self.m
         rp = self.__rp
-        m.d.comb += read_port.rdy.eq(1)
-        m.d.comb += rp.addr.eq(read_port.addr)
+        comb = []
+        comb += [read_port.rdy.eq(1)]
+        comb += [rp.addr.eq(read_port.addr)]
+        return comb
 
     def do_write(self, write_port):
-        m = self.m
         wp = self.__wp
-        m.d.comb += write_port.rdy.eq(1)
-        m.d.comb += wp.en.eq(write_port.en)
-        m.d.comb += wp.addr.eq(write_port.addr)
-        m.d.comb += wp.data.eq(write_port.data)
+        comb = []
+        comb += [write_port.rdy.eq(1)]
+        comb += [wp.en.eq(write_port.en)]
+        comb += [wp.addr.eq(write_port.addr)]
+        comb += [wp.data.eq(write_port.data)]
+        return comb
 
 if __name__ == '__main__':
     from nmigen.sim import Simulator
