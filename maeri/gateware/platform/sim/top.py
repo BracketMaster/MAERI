@@ -16,7 +16,7 @@ from maeri.common.domains import comm_domain, comm_period
 from maeri.common.domains import compute_domain, compute_period
 
 class Top(Elaboratable):
-    def __init__(self, sim=False, max_packet_size=32, mem_depth=2056):
+    def __init__(self, sim=False, max_packet_size=32, mem_depth=256):
         mem_width = 32
         # config
         config = {}

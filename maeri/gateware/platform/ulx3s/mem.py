@@ -20,13 +20,10 @@ class Mem(Elaboratable):
         """
 
         # instantiate memory
-        # self.mem = sdram_controller()
 
         # publicly visible
         self.addr_shape = 24
         self.data_shape = 32
-        #self.addr_shape = self.mem.address.shape().width
-        #self.data_shape = self.mem.data_in.shape().width
 
         self.read_port1 = ReadPort(self.addr_shape, self.data_shape, 'read_port1')
         self.write_port1 = WritePort(self.addr_shape, self.data_shape, 'write_port1')

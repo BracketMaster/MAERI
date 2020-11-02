@@ -19,12 +19,14 @@ class Top(Elaboratable):
     def __init__(self):
         max_packet_size = 32
         mem_width = 32
-        mem_depth = 32 * 1024 * 256
+        bytes_in_line = mem_width//8
+        MiB = 2**20
+        mem_depth = (32*MiB)//bytes_in_line
 
         # config
         config = {}
         config['b_in_packet'] = max_packet_size
-        config['b_in_line'] = mem_width//8
+        config['b_in_line'] = bytes_in_line
         config['m_depth'] = mem_depth
         # TODO : retrieve actual parameter from submodule
         # instantiation

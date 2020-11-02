@@ -5,7 +5,7 @@ max_packet_size = 32
 try:
     if os.environ['PLATFORM'] == None:
         raise ValueError()
-    if (os.environ['PLATFORM'] not in {'tinyfpga', 'sim'}):
+    if (os.environ['PLATFORM'] not in {'ulx3s', 'sim'}):
         print(colored(f"INVALID OPTION!: PLATFORM={os.environ['PLATFORM']}", 'red'))
         raise ValueError()
     else:
@@ -13,7 +13,7 @@ try:
 except:
     platform = 'sim'
     print(colored("RUNNING on nMigen Simulation Model",'blue'))
-    print(colored("CHANGE WITH PLATFORM=tinyfpga or PLATFORM=sim",'blue'))
+    print(colored("CHANGE WITH PLATFORM=ulx3s or PLATFORM=sim",'blue'))
     print()
 
 if platform == 'sim':

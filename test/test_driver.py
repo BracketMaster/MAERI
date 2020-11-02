@@ -30,8 +30,7 @@ def quick_compare(l1, l2):
     return diffs_by_index
 
 lines_in_KiB = 1024//driver.mem_width
-MiBs = 32
-KiBs = MiBs*1024
+KiBs = (driver.mem_width * driver.mem_depth)//1024
 data = [r(0, 0xFF) for _ in range(KiBs * 1024)]
 
 def write_data():
@@ -50,8 +49,16 @@ def check_data():
 
 class TestMem(unittest.TestCase):
     def test_fullmem(self):
-        print(f"Testing {MiBs} MiBs of memory.")
+        print(f"Testing {KiBs} KiBs of memory.")
         print(f"status = {driver.get_status()}")
 
         write_data()
         check_data()
+
+        print()
+        print("TEST SUCCESS")
+        print(f"VERIFIED {KiBs} KiBs OF MEMORY.")
+
+if __name__ == "__main__":
+    DEBUG = True
+    unittest.main()
