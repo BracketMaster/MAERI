@@ -35,8 +35,6 @@ class ULX3SDomainGenerator(Elaboratable):
 
         # Grab our default input clock.
         input_clock = platform.request(platform.default_clk, dir="i")
-        a = platform.request("sdram").a
-        [print(sig) for sig in a]
 
         # Create our domains; but don't do anything else for them, for now.
         m.domains.sync   = ClockDomain()
@@ -121,49 +119,56 @@ class ULX3SDomainGenerator(Elaboratable):
             i_RST=0,
             i_STDBY=0,
             i_CLKI=input_clock.i,
+            o_CLKOP=clk140,
+            o_CLKOS=clk140_3ns,
+
+            o_CLKOS2=clk70,
+            i_CLKFB=clk140,
+
             i_PHASESEL0=0,
             i_PHASESEL1=0,
+
             i_PHASEDIR=1,
             i_PHASESTEP=1,
             i_PHASELOADREG=1,
             i_PLLWAKESYNC=0,
             i_ENCLKOP=0,
-            i_CLKFB=clk140,
 
             o_LOCK=locked_70_140,
-            o_CLKOP=clk140,
-            o_CLKOS=clk140_3ns,
-            o_CLKOS2=clk70,
+
 
             p_PLLRST_ENA="DISABLED",
             p_INTFB_WAKE="DISABLED",
             p_STDBY_ENABLE="DISABLED",
             p_DPHASE_SOURCE="DISABLED",
             p_OUTDIVIDER_MUXA="DIVA",
+
             p_OUTDIVIDER_MUXB="DIVB",
             p_OUTDIVIDER_MUXC="DIVC",
             p_OUTDIVIDER_MUXD="DIVD",
-            p_CLKI_DIV=5,
+            p_CLKI_DIV=1,
             p_CLKOP_ENABLE="ENABLED",
 
-            p_CLKOS2_ENABLE="ENABLED",
-            p_CLKOP_DIV=4,
-            p_CLKOP_CPHASE=1,
+            p_CLKOP_DIV=6,
+            p_CLKOP_CPHASE=2,
             p_CLKOP_FPHASE=0,
             p_CLKOS_ENABLE="ENABLED",
-            p_CLKOS_DIV=4,
-            p_CLKOS_CPHASE=2,
+            p_CLKOS_DIV=6,
+
+            p_CLKOS_CPHASE=5,
             p_CLKOS_FPHASE=0,
-            p_CLKOS2_DIV=8,
-            p_CLKOS2_CPHASE=1,
+            p_CLKOS2_ENABLE="ENABLED",
+            p_CLKOS2_DIV=12,
+            p_CLKOS2_CPHASE=2,
+
             p_CLKOS2_FPHASE=0,
             p_FEEDBK_PATH="CLKOP",
-            p_CLKFB_DIV=28,
+            p_CLKFB_DIV=4,
 
             a_FREQUENCY_PIN_CLKI="25",
-            a_FREQUENCY_PIN_CLKOP="140",
-            a_FREQUENCY_PIN_CLKOS="140",
-            a_FREQUENCY_PIN_CLKOS2="70",
+            a_FREQUENCY_PIN_CLKOP="100",
+            a_FREQUENCY_PIN_CLKOS="100",
+            a_FREQUENCY_PIN_CLKOS2="50",
             a_ICP_CURRENT="12",
             a_LPF_RESISTOR="8",
             a_MFG_ENABLE_FILTEROPAMP="1",

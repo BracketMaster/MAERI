@@ -1,30 +1,32 @@
 from nmigen import  Memory, Signal, Module
 from nmigen import Record, Elaboratable
 from maeri.gateware.platform.generic.interfaces import WritePort, ReadPort
+from sdram_controller import sdram_controller
+
+def led_display_value(m, led, value):
+    value = Const(value, 8)
+    statements = [light.eq(val) for light,val in zip(led, value)]
+    return statements
+
+def led_display_signal(m, led, signal):
+    return [light.eq(sig) for light,sig in zip(led,signal)]
 
 class Mem(Elaboratable):
-    def __init__(self, width, depth, sim_init=False):
+    def __init__(self):
         """
         A memory with two write ports and two
         read ports that is arbited with a simple
         priority encoder.
         """
-        init = None
-        if sim_init:
-            from random import randint
-            init = [val for val in range(1, depth + 1)]
-        
-        if width < 16:
-            raise ValueError("MEMORY WIDTH MUST BE AT LEAST 16 BITS")
 
-        mem = Memory(width=width, depth=depth, init=init)
-        mem.attrs['ram_block'] = 1
-        self.__rp = mem.read_port()
-        self.__wp = mem.write_port()
+        # instantiate memory
+        # self.mem = sdram_controller()
 
         # publicly visible
-        self.addr_shape = self.__wp.addr.shape().width
-        self.data_shape = self.__wp.data.shape().width
+        self.addr_shape = 24
+        self.data_shape = 32
+        #self.addr_shape = self.mem.address.shape().width
+        #self.data_shape = self.mem.data_in.shape().width
 
         self.read_port1 = ReadPort(self.addr_shape, self.data_shape, 'read_port1')
         self.write_port1 = WritePort(self.addr_shape, self.data_shape, 'write_port1')
@@ -34,101 +36,101 @@ class Mem(Elaboratable):
     
     def elaborate(self, platform):
         self.m = m = Module()
-        m.submodules.rp = rp = self.__rp
-        m.submodules.wp = wp = self.__wp
 
-        # read port data is always connected
-        m.d.comb += self.read_port1.data.eq(self.__rp.data)
-        m.d.comb += self.read_port2.data.eq(self.__rp.data)
+        m.submodules.mem = mem = sdram_controller()
+        self.mem = mem
 
-        read_condition = (self.read_port1.rdy | self.read_port2.rdy)
-        write_condition = (self.write_port1.rdy | self.write_port2.rdy)
+        # TODO : replace
+        m.d.comb += self.read_port1.data.eq(mem.data_out)
+        m.d.comb += self.read_port2.data.eq(mem.data_out)
 
         read_complete = Signal()
         write_complete = Signal()
 
-        m.d.sync += read_complete.eq(read_condition)
-        m.d.comb += write_complete.eq(write_condition)
+        # TODO : replace
+        m.d.sync += read_complete.eq(mem.data_valid)
+        m.d.sync += write_complete.eq(mem.write_complete)
+
+        self.address_comb = Signal(self.addr_shape)
+        self.address_sync = Signal(self.addr_shape)
+        self.data_comb = Signal(self.data_shape)
+        self.data_sync = Signal(self.data_shape)
+
+        # TODO : replace
+        m.d.comb += mem.address.eq(self.address_comb | self.address_sync)
+        m.d.comb += mem.data_in.eq(self.data_comb | self.data_sync)
 
         with m.FSM(name="Mem_FSM"):
             with m.State("IDLE"):
                 with m.If(self.read_port1.rq):
                     m.d.comb += self.do_read(self.read_port1)
-                    with m.If(read_complete):
-                        m.d.comb += self.read_port1.valid.eq(1)
-                    with m.Else():
-                        m.next = "SERVICING_PORT1_READ"
+                    m.next = "SERVICING_PORT1_READ"
                 
                 with m.Elif(self.read_port2.rq):
                     m.d.comb += self.do_read(self.read_port2)
-                    with m.If(read_complete):
-                        m.d.comb += self.read_port2.valid.eq(1)
-                    with m.Else():
-                        m.next = "SERVICING_PORT2_READ"
+                    m.next = "SERVICING_PORT2_READ"
                 
                 with m.Elif(self.write_port1.rq):
                     m.d.comb += self.do_write(self.write_port1)
-                    with m.If(write_complete):
-                        m.d.comb += self.write_port1.ack.eq(1)
-                    with m.Else():
-                        m.next = "SERVICING_PORT1_WRITE"
+                    m.next = "SERVICING_PORT1_WRITE"
 
                 with m.Elif(self.write_port2.rq):
                     m.d.comb += self.do_write(self.write_port2)
-                    with m.If(write_complete):
-                        m.d.comb += self.write_port2.ack.eq(1)
-                    with m.Else():
-                        m.next = "SERVICING_PORT2_WRITE"
+                    m.next = "SERVICING_PORT2_WRITE"
             
             with m.State("SERVICING_PORT1_READ"):
                 with m.If(read_complete):
                     m.d.comb += self.read_port1.valid.eq(1)
+                    self.reset_address_and_data()
                     m.next = "IDLE"
 
             with m.State("SERVICING_PORT2_READ"):
                 with m.If(read_complete):
                     m.d.comb += self.read_port2.valid.eq(1)
+                    self.reset_address_and_data()
                     m.next = "IDLE"
 
             with m.State("SERVICING_PORT1_WRITE"):
                 with m.If(write_complete):
                     m.d.comb += self.write_port1.ack.eq(1)
+                    self.reset_address_and_data()
                     m.next = "IDLE"
 
             with m.State("SERVICING_PORT2_WRITE"):
                 with m.If(write_complete):
                     m.d.comb += self.write_port2.ack.eq(1)
+                    self.reset_address_and_data()
                     m.next = "IDLE"
 
 
         return m
     
     def do_read(self, read_port):
-        rp = self.__rp
         comb = []
         comb += [read_port.rdy.eq(1)]
-        comb += [rp.addr.eq(read_port.addr)]
+        comb += [self.mem.req_read.eq(1)]
+        self.set_address_and_data(read_port.addr, 0)
         return comb
 
     def do_write(self, write_port):
-        wp = self.__wp
         comb = []
+        comb += [self.mem.req_write.eq(1)]
         comb += [write_port.rdy.eq(1)]
-        comb += [wp.en.eq(write_port.en)]
-        comb += [wp.addr.eq(write_port.addr)]
-        comb += [wp.data.eq(write_port.data)]
+        self.set_address_and_data(write_port.addr, write_port.data)
         return comb
-
-if __name__ == '__main__':
-    from nmigen.sim import Simulator
-    def process():
-        for tick in range(4):
-            yield
     
-    dut = Mem(width=16, depth=32, sim_init=True)
-    sim = Simulator(dut)
-    sim.add_clock(1e-6)
-    sim.add_sync_process(process)
+    def set_address_and_data(self, addr, data):
+        m = self.m
+        m.d.comb += self.address_comb.eq(addr)
+        m.d.sync += self.address_sync.eq(addr)
 
-    with sim.write_vcd(f"{__file__[:-3]}.vcd"):
-        sim.run()
+        m.d.comb += self.data_comb.eq(data)
+        m.d.sync += self.data_sync.eq(data)
+
+    def reset_address_and_data(self):
+        m = self.m
+        m.d.comb += self.address_comb.eq(0)
+        m.d.sync += self.address_sync.eq(0)
+
+        m.d.comb += self.data_comb.eq(0)
+        m.d.sync += self.data_sync.eq(0)

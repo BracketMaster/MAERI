@@ -3,10 +3,11 @@ from nmigen import Record
 
 class PacketUpload(Record):
     def __init__(self, addr_shape, max_packet_size, name):
+        print(f"packetuploader addr size = {addr_shape}")
         super().__init__([
             ('ptr',                    addr_shape),
             ('upload',                           1),
-            ('len',         range(max_packet_size + 1)),
+            ('len',                     addr_shape),
             ('finished',                         1),
         ], name=name)
     
@@ -20,6 +21,7 @@ class PacketUpload(Record):
 
 class PacketDownload(Record):
     def __init__(self, addr_shape, max_packet_size, name):
+        print(f"packetdownloader addr size = {addr_shape}")
         super().__init__([
             ('ptr',                    addr_shape),
             ('download',                         1),
@@ -35,6 +37,7 @@ class PacketDownload(Record):
 
 class WritePort(Record):
     def __init__(self, addr_shape, data_shape, name):
+        print(f"writeport addr size = {addr_shape}")
         super().__init__([
             ('en',               1),
             ('ack',              1),
@@ -59,6 +62,7 @@ class WritePort(Record):
 
 class ReadPort(Record):
     def __init__(self, addr_shape, data_shape, name):
+        print(f"readport addr size = {addr_shape}")
         super().__init__([
             ('addr',    addr_shape),
             ('data',    data_shape),

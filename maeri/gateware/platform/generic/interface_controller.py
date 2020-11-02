@@ -72,6 +72,7 @@ class InterfaceController(Elaboratable):
 
         bytes_in_mem = int(bytes_in_mem_line)*depth
         self.packets_in_mem = bytes_in_mem//max_packet_size
+        print(f"packets_in_mem = {self.packets_in_mem}")
 
     def elaborate(self, platform):
         self.m = m = Module()

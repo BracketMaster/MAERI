@@ -29,6 +29,7 @@ class SimDriver():
             self.write_object.__enter__()
 
         config = loads(self.get_config())
+        print(f"device config = {config}")
         self.max_packet_size = config['b_in_packet']
         self.mem_width = config['b_in_line']
         self.mem_depth = config['m_depth']

@@ -19,7 +19,7 @@ class Top(Elaboratable):
     def __init__(self):
         max_packet_size = 32
         mem_width = 32
-        mem_depth = 1024 + 512 + 256
+        mem_depth = 32 * 1024 * 256
 
         # config
         config = {}
@@ -35,7 +35,7 @@ class Top(Elaboratable):
             raise ValueError("MEM_SIZE MUST BE A MULTIPLE OF MAX_PACKET_SIZE")
 
         # instantiate submodules
-        self.mem = mem = Mem(width=mem_width, depth=mem_depth, sim_init=False)
+        self.mem = mem = Mem()
         self.serial_link = SerialLink(sim=False, max_packet_size=max_packet_size)
         self.load_unit = \
             Load(mem.addr_shape, mem.data_shape, max_packet_size)
