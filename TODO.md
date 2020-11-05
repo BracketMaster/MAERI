@@ -20,6 +20,7 @@ in the network reduction tests
    - iterate and converge
 
 # Misc
+ - [ ] the driver should be hooked directly into command enums
  - [ ] remove tinyFPGA as a platform
  - [ ] add README with basic diagrams
  - [ ] add tests manually to script

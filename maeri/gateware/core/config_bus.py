@@ -1,4 +1,4 @@
-from maeri.common.enums import ConfigUp
+from maeri.compiler.ISA.states import ConfigUp
 from nmigen import Record
 from nmigen.hdl.rec import Direction
 

@@ -2,7 +2,7 @@ from nmigen import  Memory, Signal, Module
 from nmigen import Record, Elaboratable, Cat
 from nmigen.lib.fifo import AsyncFIFOBuffered
 
-from maeri.common.enums import MaeriState
+from maeri.compiler.ISA.states import MaeriState
 
 class StatusUnit(Elaboratable):
     def __init__(self, comm_domain, compute_domain):

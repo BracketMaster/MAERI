@@ -10,7 +10,7 @@ from enum import IntEnum, unique
 from json import dumps
 from math import ceil
 
-from maeri.common.enums import MaeriState
+from maeri.compiler.ISA.states import MaeriState
 
 @unique
 class Command(IntEnum):
