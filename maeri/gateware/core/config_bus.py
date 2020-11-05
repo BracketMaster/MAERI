@@ -2,11 +2,22 @@ from maeri.common.enums import ConfigUp
 from nmigen import Record
 from nmigen.hdl.rec import Direction
 
-def config_bus(name, INPUT_WIDTH):
-    config_bus = [
-        ("En", 1),
-        ("Addr", 8),
-        ("Data", INPUT_WIDTH),
-        ("Inject_En", 1)
+class ConfigBus(Record):
+    def __init__(self, name, INPUT_WIDTH):
+        super().__init__([
+            ('en',              1),
+            ('addr',  INPUT_WIDTH),
+            ('data',  INPUT_WIDTH),
+            ('set_weight',      1),
+        ], name=name)
+    
+    def connect(lhs, rhs):
+        """
+        example: m.d.comb += ldst.connect(mem.rp)
+        """
+        return [
+            lhs.en            .eq(rhs.en),
+            lhs.data          .eq(rhs.data),
+            lhs.addr          .eq(rhs.addr),
+            lhs.set_weight    .eq(rhs.set_weight),
         ]
-    return Record(config_bus, name = name)

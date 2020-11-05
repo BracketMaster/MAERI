@@ -8,7 +8,7 @@ from nmigen import signed
 
 from maeri.common.enums import ConfigUp, ConfigForward
 from maeri.customize.adder import Adder3
-from maeri.gateware.core.config_bus import config_bus
+from maeri.gateware.core.config_bus import ConfigBus
 
 class AdderNode(Elaboratable):
     def __init__(self,ID, INPUT_WIDTH=8):
@@ -27,14 +27,12 @@ class AdderNode(Elaboratable):
         self.lhs_in = Signal(signed(INPUT_WIDTH))
         self.rhs_in = Signal(signed(INPUT_WIDTH))
         self.F_in = Signal(signed(INPUT_WIDTH))
-        self.Config_Bus_top_in = config_bus(f"config_in_node_{ID}", INPUT_WIDTH)
+        self.Config_Bus_top_in = ConfigBus(f"config_in_node_{ID}", INPUT_WIDTH)
 
 
         # outputs
         self.Up_out = Signal(signed(INPUT_WIDTH))
         self.F_out = Signal(signed(INPUT_WIDTH))
-        self.Config_Bus_lhs_out = config_bus(f"config_out_lhs_node_{ID}", INPUT_WIDTH)
-        self.Config_Bus_rhs_out = config_bus(f"config_out_rhs_node_{ID}", INPUT_WIDTH)
         
         # submodules
         self.adder = Adder3(INPUT_WIDTH=INPUT_WIDTH)
@@ -58,23 +56,15 @@ class AdderNode(Elaboratable):
         # set the ID
         m.d.comb += self.id_reg.eq(self.ID)
 
-        # propagate configuration
-        m.d.sync += self.Config_Bus_lhs_out.eq(
-            self.Config_Bus_top_in
-        )
-        m.d.sync += self.Config_Bus_rhs_out.eq(
-            self.Config_Bus_top_in
-        )
-
         # configuration
         # change the adder state to the state on 
         # config bus when in config mode
-        with m.If(self.Config_Bus_top_in.En):
-            with m.If(self.Config_Bus_top_in.Addr == self.id_reg):
+        with m.If(self.Config_Bus_top_in.en):
+            with m.If(self.Config_Bus_top_in.addr == self.id_reg):
                 # the state is pulled from the lower
                 # bits of the data bus
                 m.d.sync += self.state.eq(
-                    self.Config_Bus_top_in.Data[:self.state.width])
+                    self.Config_Bus_top_in.data[:self.state.width])
 
         # attach adder as submodule
         m.submodules.adder = self.adder
@@ -138,10 +128,6 @@ class AdderNode(Elaboratable):
         ports += self.Up_out, self.F_out
         ports += [self.Config_Bus_top_in[sig] 
             for sig in self.Config_Bus_top_in.fields]
-        ports += [self.Config_Bus_lhs_out[sig] 
-            for sig in self.Config_Bus_lhs_out.fields]
-        ports += [self.Config_Bus_rhs_out[sig] 
-            for sig in self.Config_Bus_rhs_out.fields]
         return ports
 
 if __name__ == "__main__":

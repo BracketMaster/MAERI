@@ -9,7 +9,7 @@ when ``Skeleton`` is called.
 The compiler will also reference an instance
 of ``Skeleton`` to help it make valid transformation
 decisions for the particular configuration
-of MAERI hardware its targetting.
+of MAERI hardware it's targetting.
 
 Builds MAERI binary tree.
 Example:
@@ -41,7 +41,7 @@ from math import log
 from functools import reduce
 
 class Skeleton():
-    def __init__(self,depth, num_ports, VERBOSE=False):
+    def __init__(self,depth, num_ports, bytes_in_line, VERBOSE=False):
         """
         Attributes:
         ===========
@@ -54,8 +54,6 @@ class Skeleton():
             list containing only mult node objects
         self.inject_nodes:
             list containing node objects which have injection ports
-        self.config_nodes:
-            list of nodes that have a config port attached to them
         self.config_groups:
             list of sub-lists. `index` in `self.config[index]`
             corresponds to a conifgure port.
@@ -115,6 +113,13 @@ class Skeleton():
                     continue
 
                 self.adder_forwarding_links.append((node1, node2))
+            
+            # nodes each memory port can config
+            self.config_groups = []
+            for index in range(bytes_in_line):
+                self.config_groups += [all_nodes[index::bytes_in_line]]
+
+            #print(self.config_groups)
 
             # list of forwarding links for mults
             self.mult_forwarding_links = []
@@ -144,34 +149,6 @@ class Skeleton():
             self.inject_nodes = self.all_nodes[selection]
             self.inject_nodes.reverse()
 
-            # configurations are injected at root nodes and can be
-            # seen by all descendants of the root injection node
-
-            # make a list of lists. There is one sub-list per
-            # rootnode. Each sublist contains its respective rootnode.
-            layer = int(log(num_ports, 2)) + 1
-            self.config_nodes = range(int(2**(layer - 1)), int(2**layer))
-            self.config_nodes = [
-                self.__tree[node] for node in self.config_nodes
-                ]
-            
-            # for each sublist, add all the descendants of the rootnode
-            # to the sublist
-            self.config_groups = [
-                list(self.get_children(node)) for node in self.config_nodes
-                ]
-            
-            # create an final sub-list for any nodes in the tree that
-            # are not currently in any config sublist
-            config_flattened = reduce(lambda  a,b: a + b, self.config_groups)
-            leftover = [
-                node for node in self.all_nodes if node not in config_flattened
-                ]
-
-            if leftover != []:
-                self.config_nodes.insert(0, self.all_nodes[0])
-                self.config_groups.insert(0, leftover)
-            
             # make nodes zero adressable in hardware
             # It is impossible to address node 128 with 8 bits,
             # so we must make node 128 become node 127 and 
@@ -181,14 +158,6 @@ class Skeleton():
             # [0, (2**depth) - 1]
             for node in all_nodes:
                 node.id -= 1
-            
-            # this is mostly to help the compiler
-            # a dict keyed by node which returns the
-            # index of the config port
-            self.node_v_port = {}
-            for port, nodes in enumerate(self.config_groups):
-                for node in nodes:
-                    self.node_v_port[node] = port
             
             if VERBOSE:
                 self.debug()
@@ -207,12 +176,13 @@ class Skeleton():
     def debug(self):
         print("INSTANTIATING SKELETON\n")
 
+        print()
         for node in self.adder_nodes:
-            print(f"ADDER NODE: ID {node.id}, CONFIG PORT {self.node_v_port[node]}")
+            print(f"ADDER NODE: ID {node.id}")
 
         print()
         for node in self.mult_nodes:
-            print(f"MULT NODE: ID:{node.id}, CONFIG PORT {self.node_v_port[node]}")
+            print(f"MULT NODE: ID:{node.id}")
 
         print()
         for node1, node2 in self.adder_forwarding_links:
@@ -223,17 +193,15 @@ class Skeleton():
             print(f"MULT FORWARDING LINK ({node1.id},{node2.id})")
 
         print()
-        for index, group in enumerate(self.config_groups):
-            node_by_id = [node.id for node in group]
-            print(f"CONFIG GROUP {index} NODES: {node_by_id}")
-
-        print()
         for node in self.inject_nodes:
             print(f"NODE {node.id} HAS INJECTION PORT")
-
+        
+        print(len(self.all_nodes))
+        
         print()
-        for node in self.config_nodes:
-            print(f"NODE {node.id} HAS CONFIG INJECTION PORT")
+        for index, group in enumerate(self.config_groups):
+            print(f"group_{index}  = {[node.id for node in group]}")
+
 
 if __name__ == "__main__":
     from sys import argv

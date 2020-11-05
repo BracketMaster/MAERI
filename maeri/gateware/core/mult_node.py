@@ -6,8 +6,8 @@ from nmigen import Elaboratable, Signal, Module
 from nmigen import signed
 
 from maeri.customize.mult import Mult
-from maeri.gateware.core.config_bus import config_bus
-from maeri.gateware.printsig import print_sig
+from maeri.gateware.core.config_bus import ConfigBus
+from maeri.common.helpers import print_sig
 
 class MultNode(Elaboratable):
     def __init__(self, ID, INPUT_WIDTH=8):
@@ -17,7 +17,7 @@ class MultNode(Elaboratable):
         # inputs
         self.Inject_in = Signal(INPUT_WIDTH)
         self.F_in = Signal(INPUT_WIDTH)
-        self.Config_Bus_top_in = config_bus(f"config_in_node_{ID}", INPUT_WIDTH)
+        self.Config_Bus_top_in = ConfigBus(f"config_in_node_{ID}", INPUT_WIDTH)
 
         # outputs
         self.F_out = Signal(INPUT_WIDTH)
@@ -65,10 +65,12 @@ class MultNode(Elaboratable):
         # bus when we are in configuration mode
         # also update mult state to state on config bus
         # when in config mode
-        with m.If(self.Config_Bus_top_in.En):
-            with m.If(self.Config_Bus_top_in.Addr == self.id):
-                m.d.sync += weight.eq(self.Config_Bus_top_in.Data)
-                m.d.sync += inject_en.eq(self.Config_Bus_top_in.Inject_En)
+        with m.If(self.Config_Bus_top_in.en):
+            with m.If(self.Config_Bus_top_in.set_weight):
+                m.d.sync += inject_en.eq(self.Config_Bus_top_in.data[0])
+            with m.Else():
+                with m.If(self.Config_Bus_top_in.addr == self.id):
+                    m.d.sync += weight.eq(self.Config_Bus_top_in.data)
         
         return m
 

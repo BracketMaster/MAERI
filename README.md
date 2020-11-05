@@ -81,3 +81,11 @@ Keep forgetting how to do this.
 ```bash
 find . -type f -name "*.py" | xargs wc -l
 ```
+
+# Optimizations
+
+ - faster configurations
+   - I should be able to easily do this with mem-width
+   of four and four config ports.
+   I remove the extra top config port that is/was
+   introduced? Was it actually introduced?

@@ -2,18 +2,19 @@ from nmigen import Signal, Elaboratable, Module
 from nmigen import signed
 
 from maeri.common.skeleton import Skeleton
-from maeri.gateware.core.config_bus import config_bus
+from maeri.gateware.core.config_bus import ConfigBus
 from maeri.gateware.core.adder_node import AdderNode
 from maeri.gateware.core.mult_node import MultNode
 
 class Maeri(Elaboratable):
-    def __init__(self, depth, num_ports, INPUT_WIDTH, VERBOSE = False):
+    def __init__(self, depth, num_ports, INPUT_WIDTH, 
+            bytes_in_line, VERBOSE = False):
         """
         Attributes:
         ===========
         inputs:
         self.select_ports:
-        self.config_ports:
+        self.config_ports_in:
         self.inject_ports:
 
         outputs:
@@ -27,7 +28,7 @@ class Maeri(Elaboratable):
         self.INPUT_WIDTH = INPUT_WIDTH
 
         # skeleton on top of which maeri will be created
-        self.skeleton = Skeleton(depth, num_ports, VERBOSE)
+        self.skeleton = Skeleton(depth, num_ports, bytes_in_line=bytes_in_line, VERBOSE=VERBOSE)
 
         # create list of selection ports
         self.select_ports = []
@@ -44,11 +45,12 @@ class Maeri(Elaboratable):
                     name=f"collect_port_{port}"))
 
         # create list of config ports
-        self.config_ports = []
-        for port in range(len(self.skeleton.config_nodes)):
-            self.config_ports.append(config_bus(
+        self.config_ports_in = []
+        for port in range(bytes_in_line):
+            self.config_ports_in.append(ConfigBus(
                 name = f"maeri_config_port_{port}",
                 INPUT_WIDTH = INPUT_WIDTH))
+        
 
         # create list of injection ports
         self.inject_ports = []
@@ -106,18 +108,13 @@ class Maeri(Elaboratable):
             inject_node_hw = self.skel_v_hw_dict[skel_node]
             m.d.comb += inject_node_hw.Inject_in.eq(port)
 
-        # connect config ports to root config nodes
-        assert(len(self.config_ports) == len(self.skeleton.config_nodes))
-        port_config_pairs = zip(self.config_ports, self.skeleton.config_nodes)
-        for port, skel_node in port_config_pairs:
-            config_node_hw = self.skel_v_hw_dict[skel_node]
-            m.d.comb += config_node_hw.Config_Bus_top_in.eq(port)
-        
-        # connect nodes in each config group
-        for group in self.skeleton.config_groups:
-            for node in group:
-                if self.has_children(node):
-                    self.connect_children_config_links(m, node, group)
+        # connect config ports of each respective node
+        # to one of the external config ports
+        port_node_pairs = zip(self.config_ports_in, self.skeleton.config_groups)
+        for config_port, config_group in port_node_pairs:
+            for node in config_group:
+                node = self.skel_v_hw_dict[node]
+                node.Config_Bus_top_in.connect(config_port)
 
         # connect left and right sum links from children
         # to parent adder nodes
@@ -161,27 +158,6 @@ class Maeri(Elaboratable):
         m.d.comb += parent_node_hw.lhs_in.eq(lhs_node_hw.Up_out)
         m.d.comb += parent_node_hw.rhs_in.eq(rhs_node_hw.Up_out)
 
-    def connect_children_config_links(self, m, skel_node, node_list):
-        parent_node_hw = self.skel_v_hw_dict[skel_node]
-        lhs_node_hw = self.skel_v_hw_dict[skel_node.lhs]
-        rhs_node_hw = self.skel_v_hw_dict[skel_node.rhs]
-
-        # do not connect config links for nodes not in
-        # the node config list
-        # print()
-        if skel_node.lhs not in node_list:
-            # print(f"SKIPPING (LHS {lhs_node_hw.ID}) <> (RHS {rhs_node_hw.ID})")
-            return
-        if skel_node.rhs not in node_list:
-            # print(f"SKIPPING (LHS {lhs_node_hw.ID}) <> (RHS {rhs_node_hw.ID})")
-            return
-        
-        # print(f"CONNECTING (LHS {lhs_node_hw.ID}) <> (RHS {rhs_node_hw.ID})")
-        m.d.comb += lhs_node_hw.Config_Bus_top_in.eq(
-                    parent_node_hw.Config_Bus_lhs_out)
-        m.d.comb += rhs_node_hw.Config_Bus_top_in.eq(
-                    parent_node_hw.Config_Bus_rhs_out)
-    
     def has_children(self, skel_node):
         if skel_node.lhs and skel_node.rhs:
             return True
@@ -192,13 +168,14 @@ class Maeri(Elaboratable):
         ports += self.select_ports
         ports += self.collect_ports
         ports += self.inject_ports
-        for port in self.config_ports:
+        for port in self.config_ports_in:
             ports += [port[sig] for sig in port.fields]
         
         return ports
 
 if __name__ == "__main__":
-    top = Maeri(depth = 5, num_ports = 4, INPUT_WIDTH = 8, VERBOSE=False)
+    top = Maeri(depth = 5, num_ports = 4, INPUT_WIDTH = 8, 
+            bytes_in_line = 4, VERBOSE=True)
 
     # generate verilog
     from nmigen.back import verilog
