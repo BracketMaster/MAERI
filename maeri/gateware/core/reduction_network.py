@@ -6,7 +6,7 @@ from maeri.gateware.core.config_bus import ConfigBus
 from maeri.gateware.core.adder_node import AdderNode
 from maeri.gateware.core.mult_node import MultNode
 
-class Maeri(Elaboratable):
+class ReductionNetwork(Elaboratable):
     def __init__(self, depth, num_ports, INPUT_WIDTH, 
             bytes_in_line, VERBOSE = False):
         """
@@ -174,7 +174,7 @@ class Maeri(Elaboratable):
         return ports
 
 if __name__ == "__main__":
-    top = Maeri(depth = 5, num_ports = 4, INPUT_WIDTH = 8, 
+    top = ReductionNetwork(depth = 5, num_ports = 4, INPUT_WIDTH = 8, 
             bytes_in_line = 4, VERBOSE=True)
 
     # generate verilog
