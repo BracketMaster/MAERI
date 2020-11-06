@@ -13,10 +13,8 @@ install_requires = [
     'nmigen @ git+https://github.com/nmigen/nmigen.git',
     'luna @ git+https://github.com/greatscottgadgets/luna',
     'termcolor',
-    'termcolor',
     'onnx==1.7.0',
     'numpy',
-    'python-varname',
     'scipy',
 ]
 
@@ -34,13 +32,8 @@ setup(
     author='Yehowshua Immanuel',
     author_email='yehowshua@chipeleven.org',
     # TODO : UPDATE!
-    #url='https://github.com/BracketMaster/MAERIV6',
+    url='https://github.com/BracketMaster/maeri',
     license='GPLv3+',
-    #package_data={
-    #    "maeriv6": ["visualiser_frontend/reduction_network/frontend/frontend.js"],
-    #    "maeriv6": ["visualiser_frontend/reduction_network/frontend/frontend.html"]
-    #    },
-    #include_package_data=True,
     zip_safe=False,
     install_requires=install_requires,
 )
