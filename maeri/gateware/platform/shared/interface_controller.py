@@ -2,7 +2,7 @@ from nmigen import Record, Signal, Module, Elaboratable
 from nmigen import Array
 
 from luna.gateware.stream import StreamInterface
-from maeri.gateware.platform.generic.interfaces import PacketUpload, PacketDownload
+from maeri.gateware.platform.shared.interfaces import PacketUpload, PacketDownload
 from maeri.common.helpers import prefix_record_name
 
 from functools import reduce

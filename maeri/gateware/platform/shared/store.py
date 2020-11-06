@@ -1,10 +1,10 @@
 from nmigen import Signal, Module, Elaboratable
 from nmigen import Record, Array
 
-from maeri.gateware.platform.generic.interfaces import WritePort, ReadPort
+from maeri.gateware.platform.shared.interfaces import WritePort, ReadPort
 
 from luna.gateware.stream import StreamInterface
-from maeri.gateware.platform.generic.interfaces import PacketDownload
+from maeri.gateware.platform.shared.interfaces import PacketDownload
 
 from maeri.common.helpers import prefix_record_name
 

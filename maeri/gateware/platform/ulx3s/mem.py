@@ -1,6 +1,6 @@
 from nmigen import  Memory, Signal, Module
 from nmigen import Record, Elaboratable
-from maeri.gateware.platform.generic.interfaces import WritePort, ReadPort
+from maeri.gateware.platform.shared.interfaces import WritePort, ReadPort
 from sdram_controller import sdram_controller
 
 def led_display_value(m, led, value):

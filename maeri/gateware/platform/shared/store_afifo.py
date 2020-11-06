@@ -2,7 +2,7 @@ from nmigen import  Memory, Signal, Module
 from nmigen import Record, Elaboratable, Cat
 from nmigen.lib.fifo import AsyncFIFOBuffered
 
-from maeri.gateware.platform.generic.interfaces import WritePort
+from maeri.gateware.platform.shared.interfaces import WritePort
 
 class StoreAfifo(Elaboratable):
     def __init__(self, addr_shape, data_shape, max_packet_size, comm_domain, compute_domain):

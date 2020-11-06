@@ -1,6 +1,6 @@
 from nmigen import  Memory, Signal, Module
 from nmigen import Record, Elaboratable
-from maeri.gateware.platform.generic.interfaces import WritePort, ReadPort
+from maeri.gateware.platform.shared.interfaces import WritePort, ReadPort
 
 class Mem(Elaboratable):
     def __init__(self, width, depth, sim_init=False):

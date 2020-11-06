@@ -4,13 +4,13 @@ from nmigen import Record, Elaboratable
 from luna.gateware.stream import StreamInterface
 
 from maeri.gateware.platform.sim.mem import Mem
-from maeri.gateware.platform.generic.store import Store
-from maeri.gateware.platform.generic.load import Load
-from maeri.gateware.platform.generic.serial_link import SerialLink
-from maeri.gateware.platform.generic.interface_controller import InterfaceController
-from maeri.gateware.platform.generic.load_afifo import LoadAfifo
-from maeri.gateware.platform.generic.store_afifo import StoreAfifo
-from maeri.gateware.platform.generic.status_unit import StatusUnit
+from maeri.gateware.platform.shared.store import Store
+from maeri.gateware.platform.shared.load import Load
+from maeri.gateware.platform.shared.serial_link import SerialLink
+from maeri.gateware.platform.shared.interface_controller import InterfaceController
+from maeri.gateware.platform.shared.load_afifo import LoadAfifo
+from maeri.gateware.platform.shared.store_afifo import StoreAfifo
+from maeri.gateware.platform.shared.status_unit import StatusUnit
 
 from maeri.common.domains import comm_domain, comm_period
 from maeri.common.domains import compute_domain, compute_period
