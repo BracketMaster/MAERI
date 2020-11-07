@@ -2,9 +2,9 @@ from nmigen import Signal, Elaboratable, Module
 from nmigen import signed
 
 from maeri.common.skeleton import Skeleton
-from maeri.gateware.core.config_bus import ConfigBus
-from maeri.gateware.core.adder_node import AdderNode
-from maeri.gateware.core.mult_node import MultNode
+from maeri.gateware.compute_unit.config_bus import ConfigBus
+from maeri.gateware.compute_unit.adder_node import AdderNode
+from maeri.gateware.compute_unit.mult_node import MultNode
 
 class ReductionNetwork(Elaboratable):
     def __init__(self, depth, num_ports, INPUT_WIDTH, 

@@ -6,7 +6,7 @@ from nmigen import Elaboratable, Signal, Module
 from nmigen import signed
 
 from maeri.customize.mult import Mult
-from maeri.gateware.core.config_bus import ConfigBus
+from maeri.gateware.compute_unit.config_bus import ConfigBus
 from maeri.common.helpers import print_sig
 
 class MultNode(Elaboratable):

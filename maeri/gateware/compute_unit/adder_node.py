@@ -8,7 +8,7 @@ from nmigen import signed
 
 from maeri.compiler.ISA.states import ConfigUp, ConfigForward
 from maeri.customize.adder import Adder3
-from maeri.gateware.core.config_bus import ConfigBus
+from maeri.gateware.compute_unit.config_bus import ConfigBus
 
 class AdderNode(Elaboratable):
     def __init__(self,ID, INPUT_WIDTH=8):
