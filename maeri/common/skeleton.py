@@ -196,8 +196,6 @@ class Skeleton():
         for node in self.inject_nodes:
             print(f"NODE {node.id} HAS INJECTION PORT")
         
-        print(len(self.all_nodes))
-        
         print()
         for index, group in enumerate(self.config_groups):
             print(f"group_{index}  = {[node.id for node in group]}")

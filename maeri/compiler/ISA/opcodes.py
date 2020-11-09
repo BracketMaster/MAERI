@@ -2,11 +2,11 @@ from enum import IntEnum, unique
 
 @unique
 class Opcodes(IntEnum):
-    configure_states = 0
-    configure_weights = 1
-    load_features = 2
-    store_features = 3
-    run = 4
+    configure_states = 1
+    configure_weights = 2
+    load_features = 3
+    store_features = 4
+    run = 5
 
 class ConfigureStates():
     op = Opcodes.configure_states

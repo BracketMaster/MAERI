@@ -47,6 +47,29 @@ cd maeri
 pip3 install -e .
 ```
 
+# Getting Started
+
+First connect the ULX3s to the host using the USB1
+port on the ULX3s.
+
+You can program the ULX3s with the accelerator by doing:
+
+```bash
+cd maeri/gateware/platform/ulx3s
+python3 top.py
+openFPGALoader -f -b ulx3s build/top.bit 
+```
+
+Now connect the ULX3s to the host using the USB2
+port on the ULX3s.
+
+You can test the driver from the ULX3s with:
+
+```bash
+cd test
+PLATFORM=ulx3s python3 test_driver.py
+```
+
 # Running Tests
 
 To run all the unit tests in succession,

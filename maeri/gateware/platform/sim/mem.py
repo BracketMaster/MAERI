@@ -1,18 +1,20 @@
 from nmigen import  Memory, Signal, Module
 from nmigen import Record, Elaboratable
+from random import randint
+
 from maeri.gateware.platform.shared.interfaces import WritePort, ReadPort
 
 class Mem(Elaboratable):
-    def __init__(self, width, depth, sim_init=False):
+    def __init__(self, width, depth, init=None):
         """
         A memory with two write ports and two
         read ports that is arbited with a simple
         priority encoder.
         """
-        init = None
-        if sim_init:
-            from random import randint
-            init = [val for val in range(1, depth + 1)]
+        max_val = 2**(width) - 1
+        if not init:
+            init = [randint(0, max_val) for val in range(1, depth + 1)]
+        #print(init)
         
         if width < 16:
             raise ValueError("MEMORY WIDTH MUST BE AT LEAST 16 BITS")

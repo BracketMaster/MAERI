@@ -16,7 +16,7 @@ from maeri.common.domains import comm_domain, comm_period
 from maeri.common.domains import compute_domain, compute_period
 
 class Top(Elaboratable):
-    def __init__(self, sim=False, max_packet_size=32, mem_depth=256):
+    def __init__(self, max_packet_size=32, mem_depth=256, init=None):
         mem_width = 32
         # config
         config = {}
@@ -32,8 +32,8 @@ class Top(Elaboratable):
             raise ValueError("MEM_SIZE MUST BE A MULTIPLE OF MAX_PACKET_SIZE")
 
         # instantiate submodules
-        self.mem = mem = Mem(width=mem_width, depth=mem_depth, sim_init=sim)
-        self.serial_link = SerialLink(sim=sim, max_packet_size=max_packet_size)
+        self.mem = mem = Mem(width=mem_width, depth=mem_depth, init=init)
+        self.serial_link = SerialLink(sim=True, max_packet_size=max_packet_size)
         self.load_unit = \
             Load(mem.addr_shape, mem.data_shape, max_packet_size)
         self.store_unit = \

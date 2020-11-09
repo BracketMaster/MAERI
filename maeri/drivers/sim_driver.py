@@ -15,7 +15,7 @@ from json import loads
 
 class SimDriver():
     def __init__(self):
-        top = Top(sim=True, max_packet_size=max_packet_size)
+        top = Top(max_packet_size=max_packet_size)
         dut = Module()
         dut.submodules.top = top
         self.top = top

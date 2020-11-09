@@ -1,3 +1,18 @@
+# Nov 6
+ - maeri base controller
+ - simple stage dependent arbiting of mem bus
+ - hdf5 h5py
+   - I need a way to delineate commands in the
+binary
+   - write, read, start, status
+ - i need a status afifo
+ - i need a start afifo
+ - setup GitHub CI
+
+ - prep return for neewer follow focus
+ - CocoTB integration needed for speedup
+ - list items on ebay
+
 # Gateware Tests
  - [ ] Add some infrastructure to run the reduction tests
  - [ ] add asserts for nodes who's outputs should be zero
@@ -10,6 +25,11 @@ in the network reduction tests
  - compute core makes memory load/store requests
  and updates it's status
 
+# MAERI core
+ - must be able to command the core to start
+ - must be able to see whether or not the core
+ is busy
+
 # Adding Support for Config
  - state machine with access to memory
    - set states
@@ -20,8 +40,7 @@ in the network reduction tests
    - iterate and converge
 
 # Misc
- - [ ] the driver should be hooked directly into command enums
- - [ ] remove tinyFPGA as a platform
+ - rename top level common to shared
  - [ ] add README with basic diagrams
  - [ ] add tests manually to script
  - [ ] remove `customize` and merge to platform
@@ -41,4 +60,7 @@ test_settings = [4, 2, 4, 4, 3, 16, 16]
  - might make sense to put compute into a
 faster domain later
    - you might need a cache to make this
-benefitial
+beneficial
+- better space utilization for opcodes
+   - involves making an interface adaptor
+   which we need anyways
