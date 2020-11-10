@@ -9,9 +9,7 @@ binary
  - i need a start afifo
  - setup GitHub CI
 
- - prep return for neewer follow focus
  - CocoTB integration needed for speedup
- - list items on ebay
 
 # Gateware Tests
  - [ ] Add some infrastructure to run the reduction tests
