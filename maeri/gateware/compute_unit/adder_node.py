@@ -60,11 +60,12 @@ class AdderNode(Elaboratable):
         # change the adder state to the state on 
         # config bus when in config mode
         with m.If(self.Config_Bus_top_in.en):
-            with m.If(self.Config_Bus_top_in.addr == self.id_reg):
-                # the state is pulled from the lower
-                # bits of the data bus
-                m.d.sync += self.state.eq(
-                    self.Config_Bus_top_in.data[:self.state.width])
+            with m.If(~self.Config_Bus_top_in.set_weight):
+                with m.If(self.Config_Bus_top_in.addr == self.id_reg):
+                    # the state is pulled from the lower
+                    # bits of the data bus
+                    m.d.sync += self.state.eq(
+                        self.Config_Bus_top_in.data[:self.state.width])
 
         # attach adder as submodule
         m.submodules.adder = self.adder

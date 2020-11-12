@@ -240,35 +240,70 @@ class Top(Elaboratable):
                                 m.next = 'FETCH_OP'
 
             with m.State("CONFIGURE_STATES"):
+                # this state configures the state of the mult nodes
                 m.d.comb += state.eq(State.configure_states)
 
-            with m.State("CONFIGURE_WEIGHTS"):
-                m.d.comb += state.eq(State.configure_weights)
-
-                address_offset = Signal.like(self.rn.config_ports_in[0].addr)
-                node_offset = Signal.like(self.rn.config_ports_in[0].addr)
+                state_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
+                state_node_offset = Signal.like(self.rn.config_ports_in[0].addr,
+                                                reset = self.num_adders)
 
                 # access memory with parsed_address
                 m.d.comb += read_rq.eq(1)
                 m.d.comb += mem_line_byte_select.eq(0)
-                m.d.comb += mem_line_addr.eq(parsed_address + address_offset)
+                m.d.comb += mem_line_addr.eq(parsed_address + state_address_offset)
 
                 assert(len(self.rn.config_ports_in) == len(mem_data))
                 for index, port in enumerate(self.rn.config_ports_in):
                     m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
-                    m.d.comb += port.addr.eq(index + node_offset)
+                    m.d.comb += port.addr.eq(index + state_node_offset)
                 
-                iterations = -(self.num_nodes//len(mem_data))
+                iterations = -(-self.num_mults//len(mem_data))
 
                 with m.If(read_byte_ready):
                     for port in self.rn.config_ports_in:
                         m.d.comb += port.en.eq(1)
-                        m.d.sync += address_offset.eq(address_offset + 1)
-                        m.d.sync += node_offset.eq(node_offset + len(mem_data))
+                        m.d.comb += port.set_weight.eq(1)
+                        m.d.sync += state_address_offset.eq(state_address_offset + 1)
+                        m.d.sync += state_node_offset.eq(state_node_offset + len(mem_data))
                 
-                with m.If(address_offset == (iterations - 1)):
-                    m.d.sync += address_offset.eq(0)
-                    m.d.sync += node_offset.eq(0)
+                print(f"iterations = {iterations}")
+                
+                with m.If(state_address_offset == (iterations)):
+                    m.d.sync += state_address_offset.eq(self.num_adders)
+                    m.d.sync += state_node_offset.eq(0)
+                    m.next = "FETCH_OP"
+
+            with m.State("CONFIGURE_WEIGHTS"):
+                # this state configures the state of the adder nodes
+                # and the weight values of the mult nodes
+                m.d.comb += state.eq(State.configure_weights)
+
+                weight_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
+                weight_node_offset = Signal.like(self.rn.config_ports_in[0].addr)
+
+                # access memory with parsed_address
+                m.d.comb += read_rq.eq(1)
+                m.d.comb += mem_line_byte_select.eq(0)
+                m.d.comb += mem_line_addr.eq(parsed_address + weight_address_offset)
+
+                assert(len(self.rn.config_ports_in) == len(mem_data))
+                for index, port in enumerate(self.rn.config_ports_in):
+                    m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
+                    m.d.comb += port.addr.eq(index + weight_node_offset)
+                
+                iterations = -(-self.num_nodes//len(mem_data))
+
+                with m.If(read_byte_ready):
+                    for port in self.rn.config_ports_in:
+                        m.d.comb += port.en.eq(1)
+                        m.d.sync += weight_address_offset.eq(weight_address_offset + 1)
+                        m.d.sync += weight_node_offset.eq(weight_node_offset + len(mem_data))
+                
+                print(f"iterations = {iterations}")
+                
+                with m.If(weight_address_offset == (iterations)):
+                    m.d.sync += weight_address_offset.eq(0)
+                    m.d.sync += weight_node_offset.eq(0)
                     m.next = "FETCH_OP"
 
             with m.State("LOAD_FEATURES"):
@@ -330,7 +365,7 @@ class Sim(Elaboratable):
 
         config_state_test = []
         for node in range(8):
-            test_vec = [randint(0,4) for node in range(4)]
+            test_vec = [randint(0,1) for node in range(4)]
             config_state_test += test_vec
             init[node + 20] = int.from_bytes(bytearray(test_vec), 'little')
         
@@ -366,7 +401,7 @@ if __name__ == "__main__":
             yield dut.start.eq(0)
             yield Tick()
 
-            for tick in range(40):
+            for tick in range(80):
                 #print(f"tick = {tick}")
                 #for index, sig in enumerate(dut.controller.mem_data):
                 #    print(f"array[{index}] = {(yield sig)}")
@@ -382,6 +417,8 @@ if __name__ == "__main__":
             for node in mults:
                 configs += [(yield node.weight)]
             
+            print()
+            print("WEIGHT CONFIG")
             print("ACTUAL CONFIG")
             print(configs)
             print("EXPECTED CONFIG")
