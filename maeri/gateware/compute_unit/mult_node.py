@@ -27,11 +27,14 @@ class MultNode(Elaboratable):
         # submodules
         self.mult = Mult(INPUT_WIDTH=INPUT_WIDTH)
 
+        # expose some internals
+        self.state = Signal()
+
     def elaborate(self,platform):
         m = Module()
 
         # internals
-        inject_en = self.inject_en = Signal()
+        inject_en = self.state
         weight = self.weight = Signal(signed(self.INPUT_WIDTH))
         feature = self.feature = Signal(signed(self.INPUT_WIDTH))
         self.id = Signal(8)
@@ -67,10 +70,10 @@ class MultNode(Elaboratable):
         # when in config mode
         with m.If(self.Config_Bus_top_in.en):
             with m.If(self.Config_Bus_top_in.set_weight):
-                m.d.sync += inject_en.eq(self.Config_Bus_top_in.data[0])
+                m.d.sync += weight.eq(self.Config_Bus_top_in.data)
             with m.Else():
                 with m.If(self.Config_Bus_top_in.addr == self.id):
-                    m.d.sync += weight.eq(self.Config_Bus_top_in.data)
+                    m.d.sync += inject_en.eq(self.Config_Bus_top_in.data[0])
         
         return m
 

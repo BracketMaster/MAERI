@@ -43,13 +43,15 @@ class AdderNode(Elaboratable):
         [up_dict.update({conf.value:conf.name}) for conf in ConfigUp]
         [f_dict.update({conf.value:conf.name}) for conf in ConfigForward]
 
+        # exposed internals
+        self.state = Signal(ConfigUp)
+
     
     def elaborate(self, platform):
         m = Module()
         
         # internals
         # the adder node can have 5 states
-        self.state = Signal(ConfigUp)
         self.id_reg = Signal(8)
         adder_sum = Signal(self.INPUT_WIDTH * 2)
 
