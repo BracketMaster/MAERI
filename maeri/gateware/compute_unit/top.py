@@ -126,7 +126,7 @@ class Top(Elaboratable):
             #condition_1 = (mem_line_byte_select == 0)
             #condition_2 = (last_addr != mem_line_addr)
             with m.If(condition_1 | condition_2 | continue_read):
-                with m.FSM(name="FETCH_OPCODE"):
+                with m.FSM(name="MEM_READ"):
                     with m.State("BEGIN_READ"):
                         m.d.sync += continue_read.eq(1)
                         m.d.comb += read_byte_ready.eq(0)
@@ -177,6 +177,7 @@ class Top(Elaboratable):
                             m.d.sync += pc.eq(pc + 1)
                             m.next = 'FETCH_PARAMS'
                         with m.Case(opcodes.ConfigureWeights.op):
+                            m.d.sync += num_params.eq(opcodes.ConfigureWeights.num_params())
                             m.d.sync += pc.eq(pc + 1)
                             m.next = 'FETCH_PARAMS'
                         with m.Case(opcodes.LoadFeatures.op):
@@ -222,24 +223,27 @@ class Top(Elaboratable):
                     with m.If(param_counter == (bytes_in_address + 2)):
                         m.d.sync += parsed_num_lines.eq(mem_data[pc_line_byte_select])
 
-                with m.If(param_counter == (num_params - 1)):
-                    m.d.sync += param_counter.eq(0)
-                    with m.Switch(op):
-                        with m.Case(opcodes.ConfigureStates.op):
-                            m.next = 'CONFIGURE_STATES'
-                        with m.Case(opcodes.ConfigureWeights.op):
-                            m.next = 'CONFIGURE_WEIGHTS'
-                        with m.Case(opcodes.LoadFeatures.op):
-                            m.next = 'LOAD_FEATURES'
-                        with m.Case(opcodes.StoreFeatures.op):
-                            m.next = 'STORE_FEATURES'
-                        with m.Case(opcodes.Run.op):
-                            m.next = 'RUN'
-                        with m.Default():
-                            m.next = 'FETCH_OP'
+                    with m.If(param_counter == (num_params - 1)):
+                        m.d.sync += param_counter.eq(0)
+                        with m.Switch(op):
+                            with m.Case(opcodes.ConfigureStates.op):
+                                m.next = 'CONFIGURE_STATES'
+                            with m.Case(opcodes.ConfigureWeights.op):
+                                m.next = 'CONFIGURE_WEIGHTS'
+                            with m.Case(opcodes.LoadFeatures.op):
+                                m.next = 'LOAD_FEATURES'
+                            with m.Case(opcodes.StoreFeatures.op):
+                                m.next = 'STORE_FEATURES'
+                            with m.Case(opcodes.Run.op):
+                                m.next = 'RUN'
+                            with m.Default():
+                                m.next = 'FETCH_OP'
 
             with m.State("CONFIGURE_STATES"):
                 m.d.comb += state.eq(State.configure_states)
+
+            with m.State("CONFIGURE_WEIGHTS"):
+                m.d.comb += state.eq(State.configure_weights)
 
                 address_offset = Signal.like(self.rn.config_ports_in[0].addr)
                 node_offset = Signal.like(self.rn.config_ports_in[0].addr)
@@ -266,9 +270,6 @@ class Top(Elaboratable):
                     m.d.sync += address_offset.eq(0)
                     m.d.sync += node_offset.eq(0)
                     m.next = "FETCH_OP"
-    
-            with m.State("CONFIGURE_WEIGHTS"):
-                m.d.comb += state.eq(State.configure_weights)
 
             with m.State("LOAD_FEATURES"):
                 m.d.comb += state.eq(State.load_features)
@@ -314,17 +315,26 @@ class Sim(Elaboratable):
         max_val = 255
 
         init = [randint(0, max_val) for val in range(0, depth)]
-        init[0]  = 0x00_00_03_02
-        init[1]  = 0x00_00_00_01
-        init[2]  = 0xDE_AD_BE_EF
+        init[0]  = 0x00_00_04_03
+        init[1]  = 0x00_01_04_02
+        init[2]  = 0x00_00_00_01
+        init[3]  = 0xDE_AD_BE_EF
 
-        config_test = []
+        config_weight_test = []
         for node in range(16):
             test_vec = [randint(0,4) for node in range(4)]
-            config_test += test_vec
-            init[node + 3] = int.from_bytes(bytearray(test_vec), 'little')
+            config_weight_test += test_vec
+            init[node + 4] = int.from_bytes(bytearray(test_vec), 'little')
         
-        self.config_test = config_test
+        self.config_weight_test = config_weight_test
+
+        config_state_test = []
+        for node in range(8):
+            test_vec = [randint(0,4) for node in range(4)]
+            config_state_test += test_vec
+            init[node + 20] = int.from_bytes(bytearray(test_vec), 'little')
+        
+        self.config_state_test = config_state_test
 
         self.mem = Mem(width=width, depth=depth, init=init)
     
@@ -375,8 +385,8 @@ if __name__ == "__main__":
             print("ACTUAL CONFIG")
             print(configs)
             print("EXPECTED CONFIG")
-            print(dut.config_test)
-            assert(dut.config_test[:len(configs)] == configs)
+            print(dut.config_weight_test[:len(configs)])
+            assert(dut.config_weight_test[:len(configs)] == configs)
 
         dut = Sim()
         sim = Simulator(dut, engine="pysim")
