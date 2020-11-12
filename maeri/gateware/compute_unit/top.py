@@ -48,9 +48,9 @@ class Top(Elaboratable):
         assert(divmod(log2(bytes_in_line),1)[1] == 0)
 
         # get needed parameters
-        num_mults = len(rn.skeleton.mult_nodes)
-        num_adders = len(rn.skeleton.adder_nodes)
-        num_nodes = len(rn.skeleton.all_nodes)
+        self.num_mults = len(rn.skeleton.mult_nodes)
+        self.num_adders = len(rn.skeleton.adder_nodes)
+        self.num_nodes = len(rn.skeleton.all_nodes)
 
         # address length should be a multiple of 8
         q, r = divmod(addr_shape,8)
@@ -58,9 +58,9 @@ class Top(Elaboratable):
         # we need this so that the increment_pc() function
         # call of each opcode functions properly
         opcodes.InitISA(_bytes_in_address=q,
-                        _num_nodes=num_nodes,
-                        _num_adders=num_adders,
-                        _num_mults=num_mults
+                        _num_nodes=self.num_nodes,
+                        _num_adders=self.num_adders,
+                        _num_mults=self.num_mults
                         )
 
         # memory connections
@@ -95,10 +95,10 @@ class Top(Elaboratable):
         num_params = Signal(5)
 
         op = Signal(8)
-        address = Signal(self.addr_shape)
-        port_buffer = Signal(8)
-        num_lines = Signal(8)
-        len_runtime = Signal(8)
+        parsed_address = Signal(self.addr_shape)
+        parsed_port_buffer = Signal(8)
+        parsed_num_lines = Signal(8)
+        parsed_len_runtime = Signal(8)
 
         state = self.status
 
@@ -209,18 +209,18 @@ class Top(Elaboratable):
                     bytes_in_address = self.addr_shape // 8
                     for byte in range(bytes_in_address):
                             with m.If(param_counter == byte):
-                                m.d.sync += address[byte*8 : (byte + 1)*8].eq(mem_data[pc_line_byte_select])
+                                m.d.sync += parsed_address[byte*8 : (byte + 1)*8].eq(mem_data[pc_line_byte_select])
 
                     # get port address parameter
                     with m.If(param_counter == (bytes_in_address + 1)):
-                        m.d.sync += port_buffer.eq(mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_port_buffer.eq(mem_data[pc_line_byte_select])
 
                         # get runtime length parameter
-                        m.d.sync += port_buffer.eq(mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_len_runtime.eq(mem_data[pc_line_byte_select])
 
                     # get number of lines parameter
                     with m.If(param_counter == (bytes_in_address + 2)):
-                        m.d.sync += num_lines.eq(mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_num_lines.eq(mem_data[pc_line_byte_select])
 
                 with m.If(param_counter == (num_params - 1)):
                     m.d.sync += param_counter.eq(0)
@@ -241,14 +241,32 @@ class Top(Elaboratable):
             with m.State("CONFIGURE_STATES"):
                 m.d.comb += state.eq(State.configure_states)
 
-                # access memory with PC as the address
+                address_offset = Signal.like(self.rn.config_ports_in[0].addr)
+                node_offset = Signal.like(self.rn.config_ports_in[0].addr)
+
+                # access memory with parsed_address
                 m.d.comb += read_rq.eq(1)
-                m.d.comb += mem_addr.eq(8)
+                m.d.comb += mem_line_byte_select.eq(0)
+                m.d.comb += mem_line_addr.eq(parsed_address + address_offset)
+
+                assert(len(self.rn.config_ports_in) == len(mem_data))
+                for index, port in enumerate(self.rn.config_ports_in):
+                    m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
+                    m.d.comb += port.addr.eq(index + node_offset)
+                
+                iterations = -(self.num_nodes//len(mem_data))
+
                 with m.If(read_byte_ready):
+                    for port in self.rn.config_ports_in:
+                        m.d.comb += port.en.eq(1)
+                        m.d.sync += address_offset.eq(address_offset + 1)
+                        m.d.sync += node_offset.eq(node_offset + len(mem_data))
+                
+                with m.If(address_offset == (iterations - 1)):
+                    m.d.sync += address_offset.eq(0)
+                    m.d.sync += node_offset.eq(0)
                     m.next = "FETCH_OP"
-
     
-
             with m.State("CONFIGURE_WEIGHTS"):
                 m.d.comb += state.eq(State.configure_weights)
 
@@ -296,7 +314,7 @@ class Sim(Elaboratable):
         max_val = 255
 
         init = [randint(0, max_val) for val in range(0, depth)]
-        init[0]  = 0x00_00_02_02
+        init[0]  = 0x00_00_03_02
         init[1]  = 0x00_00_00_01
         init[2]  = 0xDE_AD_BE_EF
 
@@ -304,7 +322,9 @@ class Sim(Elaboratable):
         for node in range(16):
             test_vec = [randint(0,4) for node in range(4)]
             config_test += test_vec
-            init[node + 3] = int.from_bytes(bytearray(test_vec), 'big')
+            init[node + 3] = int.from_bytes(bytearray(test_vec), 'little')
+        
+        self.config_test = config_test
 
         self.mem = Mem(width=width, depth=depth, init=init)
     
@@ -336,11 +356,27 @@ if __name__ == "__main__":
             yield dut.start.eq(0)
             yield Tick()
 
-            for tick in range(10):
+            for tick in range(40):
                 #print(f"tick = {tick}")
                 #for index, sig in enumerate(dut.controller.mem_data):
                 #    print(f"array[{index}] = {(yield sig)}")
                 yield Tick()
+
+            # list of states
+            adders = dut.controller.rn.adders
+            mults = dut.controller.rn.mults
+
+            configs = []
+            for node in adders:
+                configs += [(yield node.state)]
+            for node in mults:
+                configs += [(yield node.weight)]
+            
+            print("ACTUAL CONFIG")
+            print(configs)
+            print("EXPECTED CONFIG")
+            print(dut.config_test)
+            assert(dut.config_test[:len(configs)] == configs)
 
         dut = Sim()
         sim = Simulator(dut, engine="pysim")

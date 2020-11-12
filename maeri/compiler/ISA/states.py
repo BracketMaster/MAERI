@@ -22,13 +22,14 @@ States that result in the value ZERO on
 an up or forwarding link are not captured.
 """
 
-
+@unique
 class ConfigUp(IntEnum):
     sum_l_r = 0
     sum_l_r_f = 2
     l = 3
     r = 4
 
+@unique
 class ConfigForward(IntEnum):
     sum_l_r = 1
     r = 3

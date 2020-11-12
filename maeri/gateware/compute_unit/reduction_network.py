@@ -12,6 +12,10 @@ class ReductionNetwork(Elaboratable):
         """
         Attributes:
         ===========
+        self.skel_v_hw_dict:
+        self.mults:
+        self.adders:
+        self.skeleton:
         inputs:
         self.select_ports:
         self.config_ports_in:
@@ -20,7 +24,6 @@ class ReductionNetwork(Elaboratable):
         outputs:
         self.collect_ports:
 
-        self.skel_v_hw:
         """
 
         # common parameters
@@ -114,7 +117,7 @@ class ReductionNetwork(Elaboratable):
         for config_port, config_group in port_node_pairs:
             for node in config_group:
                 node = self.skel_v_hw_dict[node]
-                node.Config_Bus_top_in.connect(config_port)
+                m.d.comb += node.Config_Bus_top_in.connect(config_port)
 
         # connect left and right sum links from children
         # to parent adder nodes
