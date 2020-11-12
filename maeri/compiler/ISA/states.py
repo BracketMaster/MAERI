@@ -33,9 +33,3 @@ class ConfigForward(IntEnum):
     sum_l_r = 1
     r = 3
     l = 4
-
-@unique
-class MaeriState(IntEnum):
-    IDLE = 0
-    BUSY = 1
-    DONE = 2

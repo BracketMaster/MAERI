@@ -1,11 +1,23 @@
 from enum import IntEnum, unique
 
 bytes_in_address = None
+num_nodes = None
+num_adders = None
+num_mults = None
 
 class InitISA():
-    def __init__(self, _bytes_in_address):
+    def __init__(self, _bytes_in_address, _num_nodes, _num_adders, _num_mults):
         global bytes_in_address
         bytes_in_address = _bytes_in_address
+
+        global num_nodes
+        num_nodes = _num_nodes
+
+        global num_adders
+        num_adders = _num_adders
+
+        global num_mults
+        num_mults = _num_mults
 
 
 @unique
@@ -23,21 +35,25 @@ class Reset():
 class ConfigureStates():
     op = Opcodes.configure_states
 
-    def __init___(self, address):
+    def __init___(self, address, states):
         self.address = address
+        assert(len(states) == num_nodes)
+        self.states = states
 
     @staticmethod
-    def increment_pc():
-        return bytes_in_address + 1
+    def num_params():
+        return bytes_in_address
 
 class ConfigureWeights():
     op = Opcodes.configure_weights
 
-    def __init___(self, address):
+    def __init___(self, address, weights):
         self.address = address
+        assert(len(weights) == num_mults)
+        self.weights = weights
 
     @staticmethod
-    def increment_pc():
+    def num_params():
         return bytes_in_address + 1
 
 class LoadFeatures():
@@ -49,7 +65,7 @@ class LoadFeatures():
         self.address = address
 
     @staticmethod
-    def increment_pc():
+    def num_params():
         return bytes_in_address + 3
 
 class StoreFeatures():
@@ -61,15 +77,16 @@ class StoreFeatures():
         self.address = address
 
     @staticmethod
-    def increment_pc():
+    def num_params():
         return bytes_in_address + 3
 
 class Run():
     op = Opcodes.run
 
-    def __init__(self, length):
-        self.length = length
+    def __init__(self, length, pace):
+        self.len_runtime = len_runtime
+        self.pace = pace
 
     @staticmethod
-    def increment_pc():
-        return 1
+    def num_params():
+        return 2
