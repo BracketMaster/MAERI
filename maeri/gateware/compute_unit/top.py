@@ -3,10 +3,10 @@ from nmigen import Signal, Array
 
 from maeri.gateware.platform.shared.interfaces import WritePort, ReadPort
 from maeri.gateware.compute_unit.reduction_network import ReductionNetwork
-from maeri.compiler.ISA import opcodes
+from maeri.compiler.assembler import opcodes
 from maeri.common.helpers import prefix_record_name
 
-from maeri.compiler.lower.signed import to_unsigned
+from maeri.compiler.assembler.signs import to_unsigned
 
 from enum import IntEnum, unique
 

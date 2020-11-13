@@ -6,7 +6,7 @@ from collections import defaultdict
 from nmigen import Elaboratable, Signal, Module
 from nmigen import signed
 
-from maeri.compiler.ISA.states import ConfigUp, ConfigForward
+from maeri.compiler.assembler.states import ConfigUp, ConfigForward
 from maeri.customize.adder import Adder3
 from maeri.gateware.compute_unit.config_bus import ConfigBus
 
