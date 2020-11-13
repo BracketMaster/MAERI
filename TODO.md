@@ -1,6 +1,6 @@
 # Nov 6
  - maeri base controller
- - simple stage dependent arbiting of mem bus
+   - need memory adaptor
  - hdf5 h5py
    - I need a way to delineate commands in the
 binary

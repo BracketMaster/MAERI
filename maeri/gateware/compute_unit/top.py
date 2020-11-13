@@ -6,6 +6,8 @@ from maeri.gateware.compute_unit.reduction_network import ReductionNetwork
 from maeri.compiler.ISA import opcodes
 from maeri.common.helpers import prefix_record_name
 
+from maeri.compiler.lower.signed import to_unsigned
+
 from enum import IntEnum, unique
 
 from math import log2
@@ -362,23 +364,21 @@ class Sim(Elaboratable):
         init[2]  = 0x00_00_00_01
         init[3]  = 0xDE_AD_BE_EF
         
-        config_state_adder = [randint(0,4) for adder in range(self.controller.num_adders)]
-        config_state_mult = [randint(0,1) for mult in range(self.controller.num_mults)]
-        self.config_state_test_vec = config_state_adder + config_state_mult
-
+        self.config_state_test_vec =  \
+            [randint(0,4) for adder in range(self.controller.num_adders)] +\
+            [randint(0,1) for mult in range(self.controller.num_mults)]
         for mem_line in range(16):
             array = self.config_state_test_vec[mem_line*4 : (mem_line + 1)*4]
             init[mem_line + 4] = int.from_bytes(bytearray(array), 'little')
         
-        self.config_weight_test_vec = [randint(0, 255) for mult in \
-                                    range(self.controller.num_mults)]
-        self.config_weight_test_vec = [0, 0, 0] + self.config_weight_test_vec
+        self.config_weight_test_vec = \
+            [0 ,0, 0] +\
+            [randint(-128, 128) for mult in range(self.controller.num_mults)]
         for mem_line in range(17):
             array = self.config_weight_test_vec[mem_line*4 : (mem_line + 1)*4]
-            array = [el for el in array]
+            array = [to_unsigned(el, 8) for el in array]
             init[mem_line + 20] = int.from_bytes(bytearray(array), 'little')
         self.config_weight_test_vec = self.config_weight_test_vec[3:]
-        self.config_weight_test_vec = [-(el&128)+(el& ~128) for el in self.config_weight_test_vec]
         
         self.mem = Mem(width=width, depth=depth, init=init)
     
