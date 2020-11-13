@@ -70,6 +70,13 @@ cd test
 PLATFORM=ulx3s python3 test_driver.py
 ```
 
+You can test the compiler with:
+
+```
+cd maeri/compiler/tests
+python3 test_compiler.py
+```
+
 # Running Tests
 
 To run all the unit tests in succession,

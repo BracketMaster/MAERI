@@ -15,7 +15,7 @@ test_settings = [
     # buff length
     8,
     # ports
-    8]
+    16]
 
 print(f"test_settings = {test_settings}")
 
@@ -103,6 +103,7 @@ res_2 = sess.sim(x)
 
 # check the output is still the same
 assert((res - res_2).sum() == 0)
+print("DONE")
 
 # delete generated model
 import os

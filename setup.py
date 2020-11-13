@@ -14,6 +14,7 @@ install_requires = [
     'luna @ git+https://github.com/greatscottgadgets/luna',
     'termcolor',
     'onnx==1.7.0',
+    'onnxruntime==1.5.2',
     'numpy',
     'scipy',
 ]
