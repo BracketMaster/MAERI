@@ -69,11 +69,12 @@ class MultNode(Elaboratable):
         # also update mult state to state on config bus
         # when in config mode
         with m.If(self.Config_Bus_top_in.en):
-            with m.If(self.Config_Bus_top_in.set_weight):
-                m.d.sync += weight.eq(self.Config_Bus_top_in.data)
-            with m.Else():
-                with m.If(self.Config_Bus_top_in.addr == self.id):
-                    m.d.sync += inject_en.eq(self.Config_Bus_top_in.data[0])
+            with m.If(self.Config_Bus_top_in.addr == self.id):
+                with m.If(self.Config_Bus_top_in.set_weight):
+                        m.d.sync += weight.eq(self.Config_Bus_top_in.data)
+                with m.Else():
+                    with m.If(self.Config_Bus_top_in.addr == self.id):
+                        m.d.sync += inject_en.eq(self.Config_Bus_top_in.data[0])
         
         return m
 

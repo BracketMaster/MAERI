@@ -242,13 +242,12 @@ class Top(Elaboratable):
             with m.State("CONFIGURE_STATES"):
                 # this state configures the state of the adder nodes
                 # and the weight values of the mult nodes
-                m.d.comb += state.eq(State.configure_weights)
+                m.d.comb += state.eq(State.configure_states)
 
                 state_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
                 state_node_offset = Signal.like(self.rn.config_ports_in[0].addr)
 
                 # access memory with parsed_address
-                m.d.comb += read_rq.eq(1)
                 m.d.comb += mem_line_byte_select.eq(0)
                 m.d.comb += mem_line_addr.eq(parsed_address + state_address_offset)
 
@@ -265,47 +264,54 @@ class Top(Elaboratable):
                         m.d.sync += state_address_offset.eq(state_address_offset + 1)
                         m.d.sync += state_node_offset.eq(state_node_offset + len(mem_data))
                 
-                print(f"iterations = {iterations}")
-                
-                with m.If(state_address_offset == (iterations)):
-                    m.d.sync += state_address_offset.eq(0)
-                    m.d.sync += state_node_offset.eq(0)
-                    m.next = "FETCH_OP"
+                    print(f"iterations = {iterations}")
+                    
+                    with m.If(state_address_offset == (iterations)):
+                        m.d.sync += state_address_offset.eq(0)
+                        m.d.sync += state_node_offset.eq(0)
+                        m.next = "FETCH_OP"
+
+                with m.If(state_address_offset != (iterations)):
+                    m.d.comb += read_rq.eq(1)
 
             with m.State("CONFIGURE_WEIGHTS"):
-                pass
-                ## this state configures the state of the mult nodes
-                #m.d.comb += state.eq(State.configure_states)
+                # this state configures the state of the mult nodes
+                m.d.comb += state.eq(State.configure_weights)
 
-                #weight_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
-                #weight_node_offset = Signal.like(self.rn.config_ports_in[0].addr,
-                #                                reset = self.num_adders)
+                weight_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
+                addr_shape = self.rn.config_ports_in[0].addr.shape().width
+                base_mem = (self.num_adders//len(mem_data))*len(mem_data)
+                print(f"base_mem = {base_mem}")
+                weight_node_offset = Signal(addr_shape, reset = base_mem)
 
-                ## access memory with parsed_address
-                #m.d.comb += read_rq.eq(1)
-                #m.d.comb += mem_line_byte_select.eq(0)
-                #m.d.comb += mem_line_addr.eq(parsed_address + weight_address_offset)
+                # access memory with parsed_address
+                m.d.comb += read_rq.eq(1)
+                m.d.comb += mem_line_byte_select.eq(0)
+                m.d.comb += mem_line_addr.eq(parsed_address + weight_address_offset)
 
-                #assert(len(self.rn.config_ports_in) == len(mem_data))
-                #for index, port in enumerate(self.rn.config_ports_in):
-                #    m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
-                #    m.d.comb += port.addr.eq(index + weight_node_offset)
+                assert(len(self.rn.config_ports_in) == len(mem_data))
+                for index, port in enumerate(self.rn.config_ports_in):
+                    m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
+                    m.d.comb += port.addr.eq(index + weight_node_offset)
                 
-                #iterations = -(-self.num_mults//len(mem_data))
+                iterations = -(-self.num_mults//len(mem_data))
 
-                #with m.If(read_byte_ready):
-                #    for port in self.rn.config_ports_in:
-                #        m.d.comb += port.en.eq(1)
-                #        m.d.comb += port.set_weight.eq(1)
-                #        m.d.sync += weight_address_offset.eq(weight_address_offset + 1)
-                #        m.d.sync += weight_node_offset.eq(weight_node_offset + len(mem_data))
+                with m.If(read_byte_ready):
+                    for port in self.rn.config_ports_in:
+                        m.d.comb += port.en.eq(1)
+                        m.d.comb += port.set_weight.eq(1)
+                        m.d.sync += weight_address_offset.eq(weight_address_offset + 1)
+                        m.d.sync += weight_node_offset.eq(weight_node_offset + len(mem_data))
                 
-                #print(f"iterations = {iterations}")
+                    print(f"iterations = {iterations}")
                 
-                #with m.If(weight_address_offset == (iterations)):
-                #    m.d.sync += weight_address_offset.eq(self.num_adders)
-                #    m.d.sync += weight_node_offset.eq(0)
-                #    m.next = "FETCH_OP"
+                    with m.If(weight_address_offset == (iterations)):
+                        m.d.sync += weight_address_offset.eq(0)
+                        m.d.sync += weight_node_offset.eq(self.num_adders)
+                        m.next = "FETCH_OP"
+
+                with m.If(weight_address_offset != (iterations)):
+                    m.d.comb += read_rq.eq(1)
 
             with m.State("LOAD_FEATURES"):
                 m.d.comb += state.eq(State.load_features)
@@ -352,28 +358,28 @@ class Sim(Elaboratable):
 
         init = [randint(0, max_val) for val in range(0, depth)]
         init[0]  = 0x00_00_04_02
-        init[1]  = 0x00_01_04_03
+        init[1]  = 0x00_00_14_03
         init[2]  = 0x00_00_00_01
         init[3]  = 0xDE_AD_BE_EF
         
         config_state_adder = [randint(0,4) for adder in range(self.controller.num_adders)]
         config_state_mult = [randint(0,1) for mult in range(self.controller.num_mults)]
-        config_state_test_vec = config_state_adder + config_state_mult
+        self.config_state_test_vec = config_state_adder + config_state_mult
 
         for mem_line in range(16):
-            array = config_state_test_vec[mem_line*4 : (mem_line + 1)*4]
+            array = self.config_state_test_vec[mem_line*4 : (mem_line + 1)*4]
             init[mem_line + 4] = int.from_bytes(bytearray(array), 'little')
         
-        self.config_state_test_vec = config_state_test_vec
-
-        #config_state_test = []
-        #for node in range(8):
-        #    test_vec = [randint(0,1) for node in range(4)]
-        #    config_state_test += test_vec
-        #    init[node + 20] = int.from_bytes(bytearray(test_vec), 'little')
+        self.config_weight_test_vec = [randint(0, 255) for mult in \
+                                    range(self.controller.num_mults)]
+        self.config_weight_test_vec = [0, 0, 0] + self.config_weight_test_vec
+        for mem_line in range(17):
+            array = self.config_weight_test_vec[mem_line*4 : (mem_line + 1)*4]
+            array = [el for el in array]
+            init[mem_line + 20] = int.from_bytes(bytearray(array), 'little')
+        self.config_weight_test_vec = self.config_weight_test_vec[3:]
+        self.config_weight_test_vec = [-(el&128)+(el& ~128) for el in self.config_weight_test_vec]
         
-        #self.config_state_test = config_state_test
-
         self.mem = Mem(width=width, depth=depth, init=init)
     
     def elaborate(self, platform):
@@ -405,26 +411,33 @@ if __name__ == "__main__":
             yield Tick()
 
             for tick in range(80):
-                #print(f"tick = {tick}")
-                #for index, sig in enumerate(dut.controller.mem_data):
-                #    print(f"array[{index}] = {(yield sig)}")
                 yield Tick()
 
             # list of states
             all_nodes = dut.controller.rn.adders + dut.controller.rn.mults
             mult_nodes = dut.controller.rn.mults
 
-            configs = []
+            actual_state_config = []
             for node in all_nodes:
-                configs += [(yield node.state)]
+                actual_state_config += [(yield node.state)]
             
             print()
-            print("WEIGHT CONFIG")
-            print("ACTUAL CONFIG")
-            print(configs)
-            print("EXPECTED CONFIG")
-            print(dut.config_state_test_vec[:len(configs)])
-            assert(dut.config_state_test_vec[:len(configs)] == configs)
+            print("ACTUAL STATE CONFIG")
+            print(actual_state_config)
+            print("EXPECTED STATE CONFIG")
+            print(dut.config_state_test_vec[:len(actual_state_config)])
+            assert(dut.config_state_test_vec[:len(actual_state_config)] == actual_state_config)
+
+            actual_weight_config = []
+            for node in mult_nodes:
+                actual_weight_config += [(yield node.weight)]
+
+            print()
+            print("ACTUAL WEIGHT CONFIG")
+            print(actual_weight_config)
+            print("EXPECTED WEIGHT CONFIG")
+            print(dut.config_weight_test_vec[:len(actual_weight_config)])
+            assert(dut.config_weight_test_vec[:len(actual_weight_config)] == actual_weight_config)
 
         dut = Sim()
         sim = Simulator(dut, engine="pysim")
