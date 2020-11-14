@@ -70,6 +70,13 @@ cd test
 PLATFORM=ulx3s python3 test_driver.py
 ```
 
+You can test the assembler together with the 
+accelerator with:
+```
+cd maeri/gateware/compute_unit
+python3 test_top.py
+```
+
 You can test the compiler with:
 
 ```
