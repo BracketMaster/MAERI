@@ -36,12 +36,13 @@ class Top(Elaboratable):
         self.bytes_in_line = bytes_in_line
 
         # add submodule
-        self.rn = rn = ReductionNetwork(     depth = depth,
-                                        num_ports = num_ports,
-                                        INPUT_WIDTH = INPUT_WIDTH, 
-                                        bytes_in_line = bytes_in_line,
-                                        VERBOSE=VERBOSE
-                                    )
+        self.rn = rn =\
+             ReductionNetwork(  depth = depth,
+                                num_ports = num_ports,
+                                INPUT_WIDTH = INPUT_WIDTH, 
+                                bytes_in_line = bytes_in_line,
+                                VERBOSE=VERBOSE
+                                )
 
         # bytes in line should be a power of 2
         assert(divmod(log2(bytes_in_line),1)[1] == 0)
@@ -120,7 +121,6 @@ class Top(Elaboratable):
         m.d.comb += condition_2.eq(last_addr != mem_line_addr)
         m.d.comb += mem_view.eq(mem_line_byte_select)
 
-        print(f"mem_line_addr shape = {mem_line_byte_select}")
         with m.If(read_rq | continue_read):
             # TODO : enable two signals below
             #condition_1 = (mem_line_byte_select == 0)
@@ -141,7 +141,6 @@ class Top(Elaboratable):
                         with m.If(self.read_port.valid):
                             m.d.sync += continue_read.eq(0)
                             m.d.comb += mem_data[0].eq(self.read_port.data[0 : 8])
-                            print(f"bytes_in_line = {self.bytes_in_line}")
                             for byte in range(1, self.bytes_in_line):
                                 m.d.sync += mem_data[byte].eq(
                                     self.read_port.data[byte*8 : (byte + 1)*8]
@@ -264,7 +263,6 @@ class Top(Elaboratable):
                         m.d.sync += state_address_offset.eq(state_address_offset + 1)
                         m.d.sync += state_node_offset.eq(state_node_offset + len(mem_data))
                 
-                    print(f"iterations = {iterations}")
                     
                     with m.If(state_address_offset == (iterations)):
                         m.d.sync += state_address_offset.eq(0)
@@ -281,7 +279,6 @@ class Top(Elaboratable):
                 weight_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
                 addr_shape = self.rn.config_ports_in[0].addr.shape().width
                 base_mem = (self.num_adders//len(mem_data))*len(mem_data)
-                print(f"base_mem = {base_mem}")
                 weight_node_offset = Signal(addr_shape, reset = base_mem)
 
                 # access memory with parsed_address
@@ -303,7 +300,6 @@ class Top(Elaboratable):
                         m.d.sync += weight_address_offset.eq(weight_address_offset + 1)
                         m.d.sync += weight_node_offset.eq(weight_node_offset + len(mem_data))
                 
-                    print(f"iterations = {iterations}")
                 
                     with m.If(weight_address_offset == (iterations)):
                         m.d.sync += weight_address_offset.eq(0)

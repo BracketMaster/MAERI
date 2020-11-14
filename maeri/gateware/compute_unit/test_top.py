@@ -1,17 +1,24 @@
 from maeri.gateware.compute_unit.top import Top
-from nmigen import Elaboratable, Module
-from nmigen import Signal, Array
 from maeri.gateware.platform.sim.mem import Mem
-from random import randint
+from maeri.compiler.assembler.assemble import assemble
 
-from maeri.compiler.assembler.signs import to_unsigned
+from nmigen import Signal, Array
+from nmigen import Elaboratable, Module
+
+from maeri.compiler.assembler.states import ConfigForward, ConfigUp
+from maeri.compiler.assembler.opcodes import ConfigureWeights, ConfigureStates
+from maeri.compiler.assembler.opcodes import LoadFeatures
+from maeri.compiler.assembler.states import InjectEn
+from random import randint, choice
+
 
 class Sim(Elaboratable):
     def __init__(self):
 
         self.start = Signal()
         self.status = Signal()
-        self.controller = Top(
+        self.controller = controller =\
+             Top(
                     addr_shape = 24,
                     data_shape = 32,
 
@@ -19,37 +26,34 @@ class Sim(Elaboratable):
                     num_ports = 16,
                     INPUT_WIDTH = 8, 
                     bytes_in_line = 4,
-                    VERBOSE=True
+                    VERBOSE=False
                 )
 
-        # attach mem
+        # build out ops
+        valid_adder_states = [ConfigForward.sum_l_r, ConfigForward.r, ConfigForward.l]
+        valid_adder_states += [ConfigUp.sum_l_r, ConfigUp.r, ConfigUp.l, ConfigUp.sum_l_r_f]
+        valid_mult_states = [InjectEn.on, InjectEn.off]
+
+        ops = []
+
+        test_state_vec_1 = [choice(valid_adder_states) for node in range(controller.num_adders)]
+        test_state_vec_1 += [choice(valid_mult_states) for node in range(controller.num_mults)]
+        ops += [ConfigureStates(test_state_vec_1)]
+
+        test_weight_vec_1 = [randint(-128, 127) for node in range(controller.num_mults)]
+        ops += [ConfigureWeights(test_weight_vec_1)]
+
+        # assemble ops
+        init = assemble(ops)
+
+        # attach and initialize mem
         width = 32
         depth = 256
-        max_val = 255
-
-        init = [randint(0, max_val) for val in range(0, depth)]
-        init[0]  = 0x00_00_04_02
-        init[1]  = 0x00_00_14_03
-        init[2]  = 0x00_00_00_01
-        init[3]  = 0xDE_AD_BE_EF
-        
-        self.config_state_test_vec =  \
-            [randint(0,4) for adder in range(self.controller.num_adders)] +\
-            [randint(0,1) for mult in range(self.controller.num_mults)]
-        for mem_line in range(16):
-            array = self.config_state_test_vec[mem_line*4 : (mem_line + 1)*4]
-            init[mem_line + 4] = int.from_bytes(bytearray(array), 'little')
-        
-        self.config_weight_test_vec = \
-            [0 ,0, 0] +\
-            [randint(-128, 127) for mult in range(self.controller.num_mults)]
-        for mem_line in range(17):
-            array = self.config_weight_test_vec[mem_line*4 : (mem_line + 1)*4]
-            array = [to_unsigned(el, 8) for el in array]
-            init[mem_line + 20] = int.from_bytes(bytearray(array), 'little')
-        self.config_weight_test_vec = self.config_weight_test_vec[3:]
-        
         self.mem = Mem(width=width, depth=depth, init=init)
+
+        # for testing later in sim
+        self.test_state_vec_1 = [int(el) for el in test_state_vec_1]
+        self.test_weight_vec_1 = [int(el) for el in test_weight_vec_1]
     
     def elaborate(self, platform):
         m = Module()
@@ -94,8 +98,8 @@ if __name__ == "__main__":
             print("ACTUAL STATE CONFIG")
             print(actual_state_config)
             print("EXPECTED STATE CONFIG")
-            print(dut.config_state_test_vec[:len(actual_state_config)])
-            assert(dut.config_state_test_vec[:len(actual_state_config)] == actual_state_config)
+            print(dut.test_state_vec_1)
+            assert(actual_state_config == dut.test_state_vec_1)
 
             actual_weight_config = []
             for node in mult_nodes:
@@ -105,8 +109,8 @@ if __name__ == "__main__":
             print("ACTUAL WEIGHT CONFIG")
             print(actual_weight_config)
             print("EXPECTED WEIGHT CONFIG")
-            print(dut.config_weight_test_vec[:len(actual_weight_config)])
-            assert(dut.config_weight_test_vec[:len(actual_weight_config)] == actual_weight_config)
+            print(dut.test_weight_vec_1)
+            assert(actual_weight_config == dut.test_weight_vec_1)
 
         dut = Sim()
         sim = Simulator(dut, engine="pysim")
