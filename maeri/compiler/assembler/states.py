@@ -34,3 +34,8 @@ class ConfigForward(IntEnum):
     sum_l_r = 1
     r = 3
     l = 4
+
+@unique
+class InjectEn(IntEnum):
+    on = 1
+    off = 0

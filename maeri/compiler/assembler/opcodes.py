@@ -1,12 +1,16 @@
+from maeri.compiler.assembler.states import ConfigForward, ConfigUp
+from maeri.compiler.assembler.states import InjectEn
+
 from enum import IntEnum, unique
 
 bytes_in_address = None
 num_nodes = None
 num_adders = None
 num_mults = None
+INPUT_WIDTH = None
 
 class InitISA():
-    def __init__(self, _bytes_in_address, _num_nodes, _num_adders, _num_mults):
+    def __init__(self, _bytes_in_address, _num_nodes, _num_adders, _num_mults, _input_width):
         global bytes_in_address
         bytes_in_address = _bytes_in_address
 
@@ -18,6 +22,9 @@ class InitISA():
 
         global num_mults
         num_mults = _num_mults
+
+        global INPUT_WIDTH
+        INPUT_WIDTH = _input_width
 
 
 @unique
@@ -35,10 +42,15 @@ class Reset():
 class ConfigureStates():
     op = Opcodes.configure_states
 
-    def __init___(self, address, states):
-        self.address = address
+    def __init__(self, states):
         assert(len(states) == num_nodes)
         self.states = states
+
+        for state in states[:num_adders]:
+            assert(any([state in ConfigForward, state in ConfigUp]))
+
+        for state in states[num_adders:]:
+            assert(state in InjectEn)
 
     @staticmethod
     def num_params():
@@ -47,9 +59,16 @@ class ConfigureStates():
 class ConfigureWeights():
     op = Opcodes.configure_weights
 
-    def __init___(self, address, weights):
-        self.address = address
+    def __init__(self, weights):
         assert(len(weights) == num_mults)
+        min = (-1)*(2**(INPUT_WIDTH - 1))
+        max = 2**(INPUT_WIDTH - 1) -1
+
+        print((min,max))
+
+        for weight in weights:
+            assert(min <= weight <= max)
+
         self.weights = weights
 
     @staticmethod
@@ -59,7 +78,7 @@ class ConfigureWeights():
 class LoadFeatures():
     op = Opcodes.load_features
 
-    def __init___(self, port_buffer_address, num_lines, address):
+    def __init__(self, port_buffer_address, num_lines, address):
         self.port_buffer_address = port_buffer_address
         self.num_lines = num_lines
         self.address = address
@@ -71,7 +90,7 @@ class LoadFeatures():
 class StoreFeatures():
     op = Opcodes.store_features
 
-    def __init___(self, port_buffer_address, num_lines, address):
+    def __init__(self, port_buffer_address, num_lines, address):
         self.port_buffer_address = port_buffer_address
         self.num_lines = num_lines
         self.address = address
@@ -83,7 +102,7 @@ class StoreFeatures():
 class Run():
     op = Opcodes.run
 
-    def __init__(self, length, pace):
+    def __init__(self, len_runtime, pace):
         self.len_runtime = len_runtime
         self.pace = pace
 
