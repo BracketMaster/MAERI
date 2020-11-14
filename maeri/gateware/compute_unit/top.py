@@ -6,8 +6,6 @@ from maeri.gateware.compute_unit.reduction_network import ReductionNetwork
 from maeri.compiler.assembler import opcodes
 from maeri.common.helpers import prefix_record_name
 
-from maeri.compiler.assembler.signs import to_unsigned
-
 from enum import IntEnum, unique
 from math import log2
 

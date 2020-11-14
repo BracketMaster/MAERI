@@ -42,7 +42,7 @@ class Sim(Elaboratable):
         
         self.config_weight_test_vec = \
             [0 ,0, 0] +\
-            [randint(-128, 128) for mult in range(self.controller.num_mults)]
+            [randint(-128, 127) for mult in range(self.controller.num_mults)]
         for mem_line in range(17):
             array = self.config_weight_test_vec[mem_line*4 : (mem_line + 1)*4]
             array = [to_unsigned(el, 8) for el in array]

@@ -64,8 +64,6 @@ class ConfigureWeights():
         min = (-1)*(2**(INPUT_WIDTH - 1))
         max = 2**(INPUT_WIDTH - 1) -1
 
-        print((min,max))
-
         for weight in weights:
             assert(min <= weight <= max)
 
