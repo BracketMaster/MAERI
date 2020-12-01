@@ -6,7 +6,7 @@ from nmigen import Signal, Array
 from nmigen import Elaboratable, Module
 
 from maeri.compiler.assembler.states import ConfigForward, ConfigUp
-from maeri.compiler.assembler.opcodes import ConfigureWeights, ConfigureStates
+from maeri.compiler.assembler import opcodes
 from maeri.compiler.assembler.opcodes import LoadFeatures
 from maeri.compiler.assembler.states import InjectEn
 from random import randint, choice
@@ -23,7 +23,7 @@ class Sim(Elaboratable):
                     data_shape = 32,
 
                     depth = 6,
-                    num_ports = 16,
+                    num_ports = 8,
                     INPUT_WIDTH = 8, 
                     bytes_in_line = 4,
                     VERBOSE=False
@@ -38,10 +38,11 @@ class Sim(Elaboratable):
 
         test_state_vec_1 = [choice(valid_adder_states) for node in range(controller.num_adders)]
         test_state_vec_1 += [choice(valid_mult_states) for node in range(controller.num_mults)]
-        ops += [ConfigureStates(test_state_vec_1)]
+        ops += [opcodes.ConfigureStates(test_state_vec_1)]
 
         test_weight_vec_1 = [randint(-128, 127) for node in range(controller.num_mults)]
-        ops += [ConfigureWeights(test_weight_vec_1)]
+        ops += [opcodes.ConfigureWeights(test_weight_vec_1)]
+        ops += [opcodes.Debug()]
 
         # assemble ops
         init = assemble(ops)

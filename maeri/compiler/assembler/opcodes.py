@@ -29,12 +29,14 @@ class InitISA():
 
 @unique
 class Opcodes(IntEnum):
+    undefined = 0
     reset = 1
     configure_states = 2
     configure_weights = 3
     load_features = 4
     store_features = 5
     run = 6
+    debug = 7
 
 class Reset():
     op = Opcodes.reset
@@ -71,7 +73,7 @@ class ConfigureWeights():
 
     @staticmethod
     def num_params():
-        return bytes_in_address + 1
+        return bytes_in_address
 
 class LoadFeatures():
     op = Opcodes.load_features
@@ -107,3 +109,13 @@ class Run():
     @staticmethod
     def num_params():
         return 2
+
+class Debug():
+    op = Opcodes.debug
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def num_params():
+        return 0

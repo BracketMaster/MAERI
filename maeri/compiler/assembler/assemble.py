@@ -1,10 +1,12 @@
 from maeri.compiler.assembler import opcodes
 from maeri.compiler.assembler.opcodes import Opcodes, ConfigureStates
 from maeri.compiler.assembler.opcodes import ConfigureWeights, LoadFeatures
-from maeri.compiler.assembler.opcodes import StoreFeatures, Run
+from maeri.compiler.assembler.opcodes import StoreFeatures, Run, Debug
 from maeri.compiler.assembler.signs import to_unsigned
 
-valid_ops = {Opcodes, ConfigureStates, ConfigureWeights, LoadFeatures, StoreFeatures, Run}
+valid_ops = {ConfigureStates, ConfigureWeights, LoadFeatures, StoreFeatures, Run, Debug}
+
+DEBUG = False
 
 def assemble(list_of_ops):
     instr_mem = []
@@ -30,7 +32,7 @@ def assemble(list_of_ops):
         assert(type(op) in valid_ops)
 
         if type(op) in {ConfigureStates}:
-            instr_mem += [int(Opcodes.configure_states)]
+            instr_mem += [opcodes.ConfigureStates.op]
             address = list(int(config_offset).to_bytes(3, 'little'))
             instr_mem += address
 
@@ -38,7 +40,7 @@ def assemble(list_of_ops):
             config_offset += 64//4
 
         if type(op) in {ConfigureWeights}:
-            instr_mem += [int(Opcodes.configure_weights)]
+            instr_mem += [opcodes.ConfigureWeights.op]
             address = list(int(config_offset).to_bytes(3, 'little'))
             instr_mem += address
 
@@ -46,8 +48,11 @@ def assemble(list_of_ops):
             weights = [to_unsigned(weight, opcodes.INPUT_WIDTH) for weight in weights]
             config_mem += weights
             config_offset += 36//4
+        
+        if type(op) in {Debug}:
+            instr_mem += [opcodes.Debug.op]
     
-    instr_mem += [int(Opcodes.reset)]
+    instr_mem += [opcodes.Reset.op]
     instr_mem += (4*instr_mem_size - len(instr_mem))*[0]
 
     config_mem += (4*config_mem_size - len(config_mem))*[0]
@@ -58,12 +63,13 @@ def assemble(list_of_ops):
         array = combined_mem[mem_line*4 : (mem_line + 1)*4]
         final_mem += [int.from_bytes(bytearray(array), 'little')]
 
-    #for line in range(len(final_mem)//4):
-    #    offset = line*4
+    if DEBUG:
+        for line in range(len(final_mem)//4):
+            offset = line*4
 
-    #    data = ""
-    #    for addr in range(4):
-    #        data += f" {offset + addr} : {hex(final_mem[offset + addr])}\t"
-    #    print(data)
+            data = ""
+            for addr in range(4):
+                data += f" {offset + addr} : {hex(final_mem[offset + addr])}\t"
+            print(data)
 
     return final_mem

@@ -12,12 +12,13 @@ from math import log2
 @unique
 class State(IntEnum):
     reset = 1
-    fetch = 2
-    configure_states = 3
-    configure_weights = 4
-    load_features = 5
-    store_features = 6
-    run = 7
+    configure_states = 2
+    configure_weights = 3
+    load_features = 4
+    store_features = 5
+    run = 6
+    debug = 7
+    fetch = 8
 
 class Top(Elaboratable):
 
@@ -67,8 +68,8 @@ class Top(Elaboratable):
         # memory connections
         self.read_port = ReadPort(self.addr_shape, self.data_shape, 'read_port')
         self.write_port = WritePort(self.addr_shape, self.data_shape, 'write_port')
-        prefix_record_name(self.read_port, 'comput_unit')
-        prefix_record_name(self.write_port, 'comput_unit')
+        prefix_record_name(self.read_port, 'compute_unit')
+        prefix_record_name(self.write_port, 'compute_unit')
 
         # control connections
         self.start = Signal()
@@ -95,7 +96,8 @@ class Top(Elaboratable):
 
         num_params = Signal(5)
 
-        op = Signal(8)
+        sync_op = Signal(opcodes.Opcodes)
+        comb_op = Signal(opcodes.Opcodes)
         parsed_address = Signal(self.addr_shape)
         parsed_port_buffer = Signal(8)
         parsed_num_lines = Signal(8)
@@ -165,9 +167,10 @@ class Top(Elaboratable):
                 m.d.comb += mem_line_byte_select.eq(pc_line_byte_select)
 
                 with m.If(read_byte_ready):
-                    m.d.sync += op.eq(mem_data[pc_line_byte_select])
+                    m.d.sync += sync_op.eq(mem_data[pc_line_byte_select])
+                    m.d.comb += comb_op.eq(mem_data[pc_line_byte_select])
 
-                    with m.Switch(mem_data[pc_line_byte_select]):
+                    with m.Switch(comb_op):
                         with m.Case(opcodes.Reset.op):
                             m.d.sync += pc.eq(0)
                             m.next = 'RESET'
@@ -188,6 +191,8 @@ class Top(Elaboratable):
                         with m.Case(opcodes.Run.op):
                             m.d.sync += pc.eq(pc + 1)
                             m.next = 'FETCH_PARAMS'
+                        with m.Case(opcodes.Debug.op):
+                            m.next = 'DEBUG'
                         with m.Default():
                             m.d.sync += pc.eq(0)
                             m.next = 'RESET'
@@ -224,7 +229,7 @@ class Top(Elaboratable):
 
                     with m.If(param_counter == (num_params - 1)):
                         m.d.sync += param_counter.eq(0)
-                        with m.Switch(op):
+                        with m.Switch(sync_op):
                             with m.Case(opcodes.ConfigureStates.op):
                                 m.next = 'CONFIGURE_STATES'
                             with m.Case(opcodes.ConfigureWeights.op):
@@ -314,6 +319,19 @@ class Top(Elaboratable):
 
             with m.State("STORE_FEATURES"):
                 m.d.comb += state.eq(State.store_features)
+
+            with m.State("DEBUG"):
+                debug_length = 2#self.num_nodes
+                debug_counter = Signal(range(debug_length))
+
+                m.d.comb += state.eq(State.debug)
+
+                with m.If(debug_counter == (debug_length - 1)):
+                    m.d.sync += pc.eq(pc + 1)
+                    m.d.sync += debug_counter.eq(0)
+                    m.next = "FETCH_OP"
+                with m.Else():
+                    m.d.sync += debug_counter.eq(debug_counter + 1)
 
             with m.State("RUN"):
                 m.d.comb += state.eq(State.run)
