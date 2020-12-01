@@ -3,8 +3,8 @@ from nmigen import Signal, Array
 
 from maeri.gateware.platform.shared.interfaces import WritePort, ReadPort
 from maeri.gateware.compute_unit.reduction_network import ReductionNetwork
+from maeri.gateware.compute_unit.mem_adaptor import MemAdaptor
 from maeri.compiler.assembler import opcodes
-from maeri.common.helpers import prefix_record_name
 
 from enum import IntEnum, unique
 from math import log2
@@ -44,6 +44,13 @@ class Top(Elaboratable):
                                 bytes_in_line = bytes_in_line,
                                 VERBOSE=VERBOSE
                                 )
+        self.mem_adaptor = MemAdaptor(
+            bytes_in_line=bytes_in_line,
+            addr_shape=addr_shape,
+            data_shape=data_shape
+            )
+        self.read_port = self.mem_adaptor.read_port
+        self.write_port = self.mem_adaptor.write_port
 
         # bytes in line should be a power of 2
         assert(divmod(log2(bytes_in_line),1)[1] == 0)
@@ -66,10 +73,6 @@ class Top(Elaboratable):
                         )
 
         # memory connections
-        self.read_port = ReadPort(self.addr_shape, self.data_shape, 'read_port')
-        self.write_port = WritePort(self.addr_shape, self.data_shape, 'write_port')
-        prefix_record_name(self.read_port, 'compute_unit')
-        prefix_record_name(self.write_port, 'compute_unit')
 
         # control connections
         self.start = Signal()
@@ -79,17 +82,16 @@ class Top(Elaboratable):
         self.m = m = Module()
 
         m.submodules.rn = self.rn
+        m.submodules.mem_adaptor = mem_adaptor = self.mem_adaptor
 
         # allow for byte granularity within a memline
         # How many bits are needed to index into a memline?
+
         log2_bytes_in_mem_line = int(log2(self.bytes_in_line))
-
-
-        pc = Signal.like(mem_addr)
+        pc = Signal.like(mem_adaptor.mem_addr)
         pc_line_addr = pc[log2_bytes_in_mem_line:]
         pc_line_byte_select = pc[:log2_bytes_in_mem_line]
 
-        self.mem_data = mem_data = Array([Signal(8,name=f"mem_byte_{_}") for _ in range(self.bytes_in_line)])
 
         num_params = Signal(5)
 
@@ -102,45 +104,6 @@ class Top(Elaboratable):
 
         state = self.status
 
-        # mem read machinery
-        # allows us to access the memory with a percieved
-        # byte level granularity
-        read_byte_ready = Signal(reset=1)
-        read_rq = Signal()
-        continue_read = Signal()
-        addr_hold = Signal(self.addr_shape)
-        last_addr = addr_hold
-        mem_addr = Signal(self.addr_shape + log2_bytes_in_mem_line)
-        mem_line_addr = mem_addr[log2_bytes_in_mem_line:]
-        mem_line_byte_select = mem_addr[:log2_bytes_in_mem_line]
-
-        with m.If(read_rq | continue_read):
-            # TODO : enable two signals below
-            condition_1 = (mem_line_byte_select == 0)
-            condition_2 = (last_addr != mem_line_addr)
-            with m.If(condition_1 | condition_2 | continue_read):
-                with m.FSM(name="MEM_READ"):
-                    with m.State("BEGIN_READ"):
-                        m.d.sync += continue_read.eq(1)
-                        m.d.comb += read_byte_ready.eq(0)
-                        m.d.comb += self.read_port.rq.eq(1)
-                        m.d.comb += self.read_port.addr.eq(mem_line_addr)
-                        m.d.sync += addr_hold.eq(mem_line_addr)
-                        with m.If(self.read_port.rdy):
-                            m.next = "FINISH_READ"
-                
-                    with m.State("FINISH_READ"):
-                        m.d.comb += self.read_port.addr.eq(addr_hold)
-                        with m.If(self.read_port.valid):
-                            m.d.sync += continue_read.eq(0)
-                            m.d.comb += mem_data[0].eq(self.read_port.data[0 : 8])
-                            for byte in range(1, self.bytes_in_line):
-                                m.d.sync += mem_data[byte].eq(
-                                    self.read_port.data[byte*8 : (byte + 1)*8]
-                                    )
-                            m.next = "BEGIN_READ"
-                        with m.Else():
-                            m.d.comb += read_byte_ready.eq(0)
 
         with m.FSM(name="MAERI_COMPUTE_UNIT_FSM"):
             with m.State("RESET"):
@@ -153,13 +116,13 @@ class Top(Elaboratable):
                 m.d.comb += state.eq(State.fetch)
 
                 # access memory with PC as the address
-                m.d.comb += read_rq.eq(1)
-                m.d.comb += mem_line_addr.eq(pc_line_addr)
-                m.d.comb += mem_line_byte_select.eq(pc_line_byte_select)
+                m.d.comb += mem_adaptor.read_rq.eq(1)
+                m.d.comb += mem_adaptor.mem_line_addr.eq(pc_line_addr)
+                m.d.comb += mem_adaptor.mem_line_byte_select.eq(pc_line_byte_select)
 
-                with m.If(read_byte_ready):
-                    m.d.sync += sync_op.eq(mem_data[pc_line_byte_select])
-                    m.d.comb += comb_op.eq(mem_data[pc_line_byte_select])
+                with m.If(mem_adaptor.read_byte_ready):
+                    m.d.sync += sync_op.eq(mem_adaptor.mem_data[pc_line_byte_select])
+                    m.d.comb += comb_op.eq(mem_adaptor.mem_data[pc_line_byte_select])
 
                     with m.Switch(comb_op):
                         with m.Case(opcodes.Reset.op):
@@ -193,11 +156,11 @@ class Top(Elaboratable):
                 param_counter = Signal(5)
 
                 # access memory with PC as the address
-                m.d.comb += read_rq.eq(1)
-                m.d.comb += mem_line_addr.eq(pc_line_addr)
-                m.d.comb += mem_line_byte_select.eq(pc_line_byte_select)
+                m.d.comb += mem_adaptor.read_rq.eq(1)
+                m.d.comb += mem_adaptor.mem_line_addr.eq(pc_line_addr)
+                m.d.comb += mem_adaptor.mem_line_byte_select.eq(pc_line_byte_select)
 
-                with m.If(read_byte_ready):
+                with m.If(mem_adaptor.read_byte_ready):
                     m.d.sync += pc.eq(pc + 1)
                     m.d.sync += param_counter.eq(param_counter + 1)
 
@@ -205,18 +168,19 @@ class Top(Elaboratable):
                     bytes_in_address = self.addr_shape // 8
                     for byte in range(bytes_in_address):
                             with m.If(param_counter == byte):
-                                m.d.sync += parsed_address[byte*8 : (byte + 1)*8].eq(mem_data[pc_line_byte_select])
+                                m.d.sync += parsed_address[byte*8 : (byte + 1)*8]\
+                                    .eq(mem_adaptor.mem_data[pc_line_byte_select])
 
                     # get port address parameter
                     with m.If(param_counter == (bytes_in_address + 1)):
-                        m.d.sync += parsed_port_buffer.eq(mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_port_buffer.eq(mem_adaptor.mem_data[pc_line_byte_select])
 
                         # get runtime length parameter
-                        m.d.sync += parsed_len_runtime.eq(mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_len_runtime.eq(mem_adaptor.mem_data[pc_line_byte_select])
 
                     # get number of lines parameter
                     with m.If(param_counter == (bytes_in_address + 2)):
-                        m.d.sync += parsed_num_lines.eq(mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_num_lines.eq(mem_adaptor.mem_data[pc_line_byte_select])
 
                     with m.If(param_counter == (num_params - 1)):
                         m.d.sync += param_counter.eq(0)
@@ -243,21 +207,21 @@ class Top(Elaboratable):
                 state_node_offset = Signal.like(self.rn.config_ports_in[0].addr)
 
                 # access memory with parsed_address
-                m.d.comb += mem_line_byte_select.eq(0)
-                m.d.comb += mem_line_addr.eq(parsed_address + state_address_offset)
+                m.d.comb += mem_adaptor.mem_line_byte_select.eq(0)
+                m.d.comb += mem_adaptor.mem_line_addr.eq(parsed_address + state_address_offset)
 
-                assert(len(self.rn.config_ports_in) == len(mem_data))
+                assert(len(self.rn.config_ports_in) == len(mem_adaptor.mem_data))
                 for index, port in enumerate(self.rn.config_ports_in):
                     m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
                     m.d.comb += port.addr.eq(index + state_node_offset)
                 
-                iterations = -(-self.num_nodes//len(mem_data))
+                iterations = -(-self.num_nodes//len(mem_adaptor.mem_data))
 
-                with m.If(read_byte_ready):
+                with m.If(mem_adaptor.read_byte_ready):
                     for port in self.rn.config_ports_in:
                         m.d.comb += port.en.eq(1)
                         m.d.sync += state_address_offset.eq(state_address_offset + 1)
-                        m.d.sync += state_node_offset.eq(state_node_offset + len(mem_data))
+                        m.d.sync += state_node_offset.eq(state_node_offset + len(mem_adaptor.mem_data))
                 
                     
                     with m.If(state_address_offset == (iterations)):
@@ -266,7 +230,7 @@ class Top(Elaboratable):
                         m.next = "FETCH_OP"
 
                 with m.If(state_address_offset != (iterations)):
-                    m.d.comb += read_rq.eq(1)
+                    m.d.comb += mem_adaptor.read_rq.eq(1)
 
             with m.State("CONFIGURE_WEIGHTS"):
                 # this state configures the state of the mult nodes
@@ -274,27 +238,27 @@ class Top(Elaboratable):
 
                 weight_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
                 addr_shape = self.rn.config_ports_in[0].addr.shape().width
-                base_mem = (self.num_adders//len(mem_data))*len(mem_data)
+                base_mem = (self.num_adders//len(mem_adaptor.mem_data))*len(mem_adaptor.mem_data)
                 weight_node_offset = Signal(addr_shape, reset = base_mem)
 
                 # access memory with parsed_address
-                m.d.comb += read_rq.eq(1)
-                m.d.comb += mem_line_byte_select.eq(0)
-                m.d.comb += mem_line_addr.eq(parsed_address + weight_address_offset)
+                m.d.comb += mem_adaptor.read_rq.eq(1)
+                m.d.comb += mem_adaptor.mem_line_byte_select.eq(0)
+                m.d.comb += mem_adaptor.mem_line_addr.eq(parsed_address + weight_address_offset)
 
-                assert(len(self.rn.config_ports_in) == len(mem_data))
+                assert(len(self.rn.config_ports_in) == len(mem_adaptor.mem_data))
                 for index, port in enumerate(self.rn.config_ports_in):
                     m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
                     m.d.comb += port.addr.eq(index + weight_node_offset)
                 
-                iterations = -(-self.num_mults//len(mem_data))
+                iterations = -(-self.num_mults//len(mem_adaptor.mem_data))
 
-                with m.If(read_byte_ready):
+                with m.If(mem_adaptor.read_byte_ready):
                     for port in self.rn.config_ports_in:
                         m.d.comb += port.en.eq(1)
                         m.d.comb += port.set_weight.eq(1)
                         m.d.sync += weight_address_offset.eq(weight_address_offset + 1)
-                        m.d.sync += weight_node_offset.eq(weight_node_offset + len(mem_data))
+                        m.d.sync += weight_node_offset.eq(weight_node_offset + len(mem_adaptor.mem_data))
                 
                 
                     with m.If(weight_address_offset == (iterations)):
@@ -303,7 +267,7 @@ class Top(Elaboratable):
                         m.next = "FETCH_OP"
 
                 with m.If(weight_address_offset != (iterations)):
-                    m.d.comb += read_rq.eq(1)
+                    m.d.comb += mem_adaptor.read_rq.eq(1)
 
             with m.State("LOAD_FEATURES"):
                 m.d.comb += state.eq(State.load_features)
