@@ -84,9 +84,6 @@ class Top(Elaboratable):
         # How many bits are needed to index into a memline?
         log2_bytes_in_mem_line = int(log2(self.bytes_in_line))
 
-        mem_addr = Signal(self.addr_shape + log2_bytes_in_mem_line)
-        mem_line_addr = mem_addr[log2_bytes_in_mem_line:]
-        mem_line_byte_select = mem_addr[:log2_bytes_in_mem_line]
 
         pc = Signal.like(mem_addr)
         pc_line_addr = pc[log2_bytes_in_mem_line:]
@@ -113,20 +110,14 @@ class Top(Elaboratable):
         continue_read = Signal()
         addr_hold = Signal(self.addr_shape)
         last_addr = addr_hold
-
-        condition_1 = Signal()
-        condition_2 = Signal()
-        mem_view = Signal(2)
-
-        # TODO : remove 3 debug signals below
-        m.d.comb += condition_1.eq(mem_line_byte_select == 0)
-        m.d.comb += condition_2.eq(last_addr != mem_line_addr)
-        m.d.comb += mem_view.eq(mem_line_byte_select)
+        mem_addr = Signal(self.addr_shape + log2_bytes_in_mem_line)
+        mem_line_addr = mem_addr[log2_bytes_in_mem_line:]
+        mem_line_byte_select = mem_addr[:log2_bytes_in_mem_line]
 
         with m.If(read_rq | continue_read):
             # TODO : enable two signals below
-            #condition_1 = (mem_line_byte_select == 0)
-            #condition_2 = (last_addr != mem_line_addr)
+            condition_1 = (mem_line_byte_select == 0)
+            condition_2 = (last_addr != mem_line_addr)
             with m.If(condition_1 | condition_2 | continue_read):
                 with m.FSM(name="MEM_READ"):
                     with m.State("BEGIN_READ"):
