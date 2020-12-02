@@ -23,7 +23,7 @@ class Sim(Elaboratable):
                     data_shape = 32,
 
                     depth = 6,
-                    num_ports = 8,
+                    num_ports = 16,
                     INPUT_WIDTH = 8, 
                     bytes_in_line = 4,
                     VERBOSE=False
@@ -84,7 +84,7 @@ if __name__ == "__main__":
             yield dut.start.eq(0)
             yield Tick()
 
-            for tick in range(80):
+            for tick in range(120):
                 yield Tick()
 
             # list of states

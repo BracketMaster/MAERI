@@ -10,7 +10,7 @@ from enum import IntEnum, unique
 from json import dumps
 from math import ceil
 
-from maeri.compiler.ISA.states import MaeriState
+from maeri.gateware.compute_unit.top import State
 
 @unique
 class Command(IntEnum):
@@ -58,7 +58,7 @@ class InterfaceController(Elaboratable):
 
         # maeri core status signals
         self.command_compute_start = Signal()
-        self.read_compute_status = Signal(MaeriState)
+        self.read_compute_status = Signal(State)
 
         # parameters
         self.config = config

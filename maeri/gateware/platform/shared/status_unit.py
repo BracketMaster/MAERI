@@ -2,19 +2,19 @@ from nmigen import  Memory, Signal, Module
 from nmigen import Record, Elaboratable, Cat
 from nmigen.lib.fifo import AsyncFIFOBuffered
 
-from maeri.compiler.ISA.states import MaeriState
+from maeri.gateware.compute_unit.top import State
 
 class StatusUnit(Elaboratable):
     def __init__(self, comm_domain, compute_domain):
         # read by MAERI controller
         self.read_start_command = Signal()
         # read by interface controller
-        self.read_compute_status = Signal(MaeriState)
+        self.read_compute_status = Signal(State)
 
         # written by interface controller
         self.write_start_command = Signal()
         # written by MAERI controller
-        self.write_compute_status = Signal(MaeriState)
+        self.write_compute_status = Signal(State)
 
         # parameters
         self.comm_domain = comm_domain

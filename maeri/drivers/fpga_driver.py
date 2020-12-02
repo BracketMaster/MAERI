@@ -1,6 +1,7 @@
 import usb.core
 import usb.util
 from json import loads
+from maeri.compiler.assembler import opcodes
 
 class FPGADriver():
     def __init__(self):
@@ -42,8 +43,15 @@ class FPGADriver():
         self.mem_width = config['b_in_line']
         self.mem_depth = config['m_depth']
         self.ports = config['ports']
+        self.no_mults = config['no.mults']
         self.packets_in_mem = (self.mem_depth * self.mem_width)//self.max_packet_size
         self.mem_size = self.mem_depth * self.mem_width
+        opcodes.InitISA(_bytes_in_address=3,
+                        _num_nodes= (2*self.no_mults) - 1,
+                        _num_adders= (self.no_mults - 1),
+                        _num_mults=self.no_mults,
+                        _input_width=8
+                        )
 
     def get_config(self):
         
@@ -64,7 +72,7 @@ class FPGADriver():
         self.out.write(b'r_status')
         data = list(self.inn.read(8))
 
-        return data
+        return data[0]
 
     def start_compute(self):
         

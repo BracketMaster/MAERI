@@ -33,10 +33,11 @@ class Opcodes(IntEnum):
     reset = 1
     configure_states = 2
     configure_weights = 3
-    load_features = 4
-    store_features = 5
-    run = 6
-    debug = 7
+    configure_collectors = 4
+    load_features = 5
+    store_features = 6
+    run = 7
+    debug = 8
 
 class Reset():
     op = Opcodes.reset

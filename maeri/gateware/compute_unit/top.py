@@ -1,5 +1,5 @@
 from nmigen import Elaboratable, Module
-from nmigen import Signal, Array
+from nmigen import Signal, Array, Cat
 
 from maeri.gateware.platform.shared.interfaces import WritePort, ReadPort
 from maeri.gateware.compute_unit.reduction_network import ReductionNetwork
@@ -14,11 +14,12 @@ class State(IntEnum):
     reset = 1
     configure_states = 2
     configure_weights = 3
-    load_features = 4
-    store_features = 5
-    run = 6
-    debug = 7
-    fetch = 8
+    configure_collectors = 4
+    load_features = 5
+    store_features = 6
+    run = 7
+    debug = 8
+    fetch = 9
 
 class Top(Elaboratable):
 
@@ -32,6 +33,7 @@ class Top(Elaboratable):
                     bytes_in_line,
                     VERBOSE=False
                     ):
+        self.num_ports = num_ports
         self.addr_shape = addr_shape
         self.data_shape = data_shape
         self.bytes_in_line = bytes_in_line
@@ -121,8 +123,8 @@ class Top(Elaboratable):
                 m.d.comb += mem_adaptor.mem_line_byte_select.eq(pc_line_byte_select)
 
                 with m.If(mem_adaptor.read_byte_ready):
-                    m.d.sync += sync_op.eq(mem_adaptor.mem_data[pc_line_byte_select])
-                    m.d.comb += comb_op.eq(mem_adaptor.mem_data[pc_line_byte_select])
+                    m.d.sync += sync_op.eq(mem_adaptor.byte_out)
+                    m.d.comb += comb_op.eq(mem_adaptor.byte_out)
 
                     with m.Switch(comb_op):
                         with m.Case(opcodes.Reset.op):
@@ -169,18 +171,18 @@ class Top(Elaboratable):
                     for byte in range(bytes_in_address):
                             with m.If(param_counter == byte):
                                 m.d.sync += parsed_address[byte*8 : (byte + 1)*8]\
-                                    .eq(mem_adaptor.mem_data[pc_line_byte_select])
+                                    .eq(mem_adaptor.byte_out)
 
                     # get port address parameter
                     with m.If(param_counter == (bytes_in_address + 1)):
-                        m.d.sync += parsed_port_buffer.eq(mem_adaptor.mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_port_buffer.eq(mem_adaptor.byte_out)
 
                         # get runtime length parameter
-                        m.d.sync += parsed_len_runtime.eq(mem_adaptor.mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_len_runtime.eq(mem_adaptor.byte_out)
 
                     # get number of lines parameter
                     with m.If(param_counter == (bytes_in_address + 2)):
-                        m.d.sync += parsed_num_lines.eq(mem_adaptor.mem_data[pc_line_byte_select])
+                        m.d.sync += parsed_num_lines.eq(mem_adaptor.byte_out)
 
                     with m.If(param_counter == (num_params - 1)):
                         m.d.sync += param_counter.eq(0)
@@ -210,18 +212,18 @@ class Top(Elaboratable):
                 m.d.comb += mem_adaptor.mem_line_byte_select.eq(0)
                 m.d.comb += mem_adaptor.mem_line_addr.eq(parsed_address + state_address_offset)
 
-                assert(len(self.rn.config_ports_in) == len(mem_adaptor.mem_data))
+                assert(len(self.rn.config_ports_in) == self.bytes_in_line)
                 for index, port in enumerate(self.rn.config_ports_in):
                     m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
                     m.d.comb += port.addr.eq(index + state_node_offset)
                 
-                iterations = -(-self.num_nodes//len(mem_adaptor.mem_data))
+                iterations = -(-self.num_nodes//self.bytes_in_line)
 
                 with m.If(mem_adaptor.read_byte_ready):
                     for port in self.rn.config_ports_in:
                         m.d.comb += port.en.eq(1)
                         m.d.sync += state_address_offset.eq(state_address_offset + 1)
-                        m.d.sync += state_node_offset.eq(state_node_offset + len(mem_adaptor.mem_data))
+                        m.d.sync += state_node_offset.eq(state_node_offset + self.bytes_in_line)
                 
                     
                     with m.If(state_address_offset == (iterations)):
@@ -238,7 +240,7 @@ class Top(Elaboratable):
 
                 weight_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
                 addr_shape = self.rn.config_ports_in[0].addr.shape().width
-                base_mem = (self.num_adders//len(mem_adaptor.mem_data))*len(mem_adaptor.mem_data)
+                base_mem = (self.num_adders//self.bytes_in_line)*self.bytes_in_line
                 weight_node_offset = Signal(addr_shape, reset = base_mem)
 
                 # access memory with parsed_address
@@ -246,19 +248,19 @@ class Top(Elaboratable):
                 m.d.comb += mem_adaptor.mem_line_byte_select.eq(0)
                 m.d.comb += mem_adaptor.mem_line_addr.eq(parsed_address + weight_address_offset)
 
-                assert(len(self.rn.config_ports_in) == len(mem_adaptor.mem_data))
+                assert(len(self.rn.config_ports_in) == self.bytes_in_line)
                 for index, port in enumerate(self.rn.config_ports_in):
                     m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
                     m.d.comb += port.addr.eq(index + weight_node_offset)
                 
-                iterations = -(-self.num_mults//len(mem_adaptor.mem_data))
+                iterations = -(-self.num_mults//self.bytes_in_line)
 
                 with m.If(mem_adaptor.read_byte_ready):
                     for port in self.rn.config_ports_in:
                         m.d.comb += port.en.eq(1)
                         m.d.comb += port.set_weight.eq(1)
                         m.d.sync += weight_address_offset.eq(weight_address_offset + 1)
-                        m.d.sync += weight_node_offset.eq(weight_node_offset + len(mem_adaptor.mem_data))
+                        m.d.sync += weight_node_offset.eq(weight_node_offset + self.bytes_in_line)
                 
                 
                     with m.If(weight_address_offset == (iterations)):
@@ -276,17 +278,109 @@ class Top(Elaboratable):
                 m.d.comb += state.eq(State.store_features)
 
             with m.State("DEBUG"):
-                debug_length = 2#self.num_nodes
-                debug_counter = Signal(range(debug_length))
-
                 m.d.comb += state.eq(State.debug)
 
-                with m.If(debug_counter == (debug_length - 1)):
-                    m.d.sync += pc.eq(pc + 1)
-                    m.d.sync += debug_counter.eq(0)
+                # fecthed parameters
+                start_address = 0
+                start_address_offset = 0
+                length = 5#self.num_nodes
+
+                # internal parameters
+                # TODO : debug_counter would become the length of the
+                # FIFO depth
+                end_address_byte = (start_address << log2_bytes_in_mem_line) \
+                    + (start_address_offset - 1) + length
+                end_address_line = end_address_byte >> log2_bytes_in_mem_line
+                print(f"start_address = {start_address}")
+                print(f"end_address_line = {end_address_line}")
+
+                with m.FSM(name="DEBUG_STORE"):
+                    done = Signal()
+                    with m.State("FIRST_WORD"):
+                        first_word = Array([Signal(8,name=f"first_word_byte_{_}") 
+                            for _ in range(self.bytes_in_line)])
+                        m.d.comb += mem_adaptor.read_rq.eq(1)
+                        m.d.comb += mem_adaptor.mem_line_addr.eq(start_address)
+
+                        byte_counter = Signal(self.bytes_in_line)
+                        m.d.comb += mem_adaptor.mem_line_byte_select.eq(byte_counter)
+
+                        with m.If(mem_adaptor.read_byte_ready):
+                            m.d.sync += byte_counter.eq(byte_counter + 1)
+                            m.d.sync += first_word[byte_counter].eq(mem_adaptor.byte_out)
+
+                            with m.If(byte_counter == (self.bytes_in_line - 1)):
+                                m.d.sync += byte_counter.eq(0)
+                                m.next = "LAST_WORD"
+
+                    with m.State("LAST_WORD"):
+                        last_word = Array([Signal(8,name=f"last_word_byte_{_}") 
+                            for _ in range(self.bytes_in_line)])
+                        m.d.comb += mem_adaptor.read_rq.eq(1)
+                        m.d.comb += mem_adaptor.mem_line_addr.eq(end_address_line)
+
+                        byte_counter = Signal(self.bytes_in_line)
+                        m.d.comb += mem_adaptor.mem_line_byte_select.eq(byte_counter)
+
+                        with m.If(mem_adaptor.read_byte_ready):
+                            m.d.sync += byte_counter.eq(byte_counter + 1)
+                            m.d.sync += last_word[byte_counter].eq(mem_adaptor.byte_out)
+
+                            with m.If(byte_counter == (self.bytes_in_line - 1)):
+                                m.d.sync += byte_counter.eq(0)
+                                m.next = "STORE"
+                    
+                    with m.State("STORE"):
+                        store_word = Array([Signal(8,name=f"store_word_byte_{_}") 
+                            for _ in range(self.bytes_in_line)])
+                        node_states = Array([node.state for node in (self.rn.adders + self.rn.mults)])
+
+                        num_words = end_address_line - start_address + 1
+                        print(f"num_words = {num_words}")
+                        word_counter = Signal(range(num_words))
+                        byte_counter = Signal(range(self.bytes_in_line))
+                        with m.FSM(name="STORE_MACHINERY"):
+                            with m.State("BUILD_WORD"):
+                                m.d.sync += store_word[byte_counter].eq(node_states[byte_counter])
+                                
+                                with m.If(byte_counter == (self.bytes_in_line - 1)):
+                                    m.d.sync += byte_counter.eq(0)
+                                    m.next = "START_WRITE"
+                                with m.Else():
+                                    m.d.sync += byte_counter.eq(byte_counter + 1)
+                            
+                            with m.State("START_WRITE"):
+                                m.d.comb += self.write_port.addr.eq(start_address + word_counter)
+                                m.d.comb += self.write_port.data.eq(Cat(store_word))
+                                m.d.comb += self.write_port.rq.eq(1)
+                                m.d.comb += self.write_port.en.eq(1)
+                                m.next = "FINISH_WRITE"
+                            
+                            with m.State("FINISH_WRITE"):
+                                m.d.comb += self.write_port.addr.eq(start_address + word_counter)
+                                m.d.comb += self.write_port.data.eq(Cat(store_word))
+                                m.d.comb += self.write_port.en.eq(1)
+                                with m.If(self.write_port.ack):
+                                    m.next = "BUILD_WORD"
+                                    with m.If(word_counter == (num_words - 1)):
+                                        m.d.comb += done.eq(1)
+                                        m.d.sync += word_counter.eq(0)
+                                    with m.Else():
+                                        m.d.sync += word_counter.eq(word_counter + 1)
+
+                        with m.If(done):
+                            m.next = "FIRST_WORD"
+                
+                with m.If(done):
                     m.next = "FETCH_OP"
-                with m.Else():
-                    m.d.sync += debug_counter.eq(debug_counter + 1)
+                    m.d.sync += pc.eq(pc + 1)
+
+                #with m.If(debug_counter == (debug_length - 1)):
+                #    m.d.sync += pc.eq(pc + 1)
+                #    m.d.sync += debug_counter.eq(0)
+                #    m.next = "FETCH_OP"
+                #with m.Else():
+                #    m.d.sync += debug_counter.eq(debug_counter + 1)
 
             with m.State("RUN"):
                 m.d.comb += state.eq(State.run)

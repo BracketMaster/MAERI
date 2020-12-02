@@ -8,7 +8,7 @@ valid_ops = {ConfigureStates, ConfigureWeights, LoadFeatures, StoreFeatures, Run
 
 DEBUG = False
 
-def assemble(list_of_ops):
+def assemble(list_of_ops, as_bytes=False):
     instr_mem = []
     instr_mem_size = 128
 
@@ -58,6 +58,8 @@ def assemble(list_of_ops):
     config_mem += (4*config_mem_size - len(config_mem))*[0]
 
     combined_mem = instr_mem + config_mem
+    if as_bytes:
+        return combined_mem
 
     for mem_line in range(instr_mem_size + config_mem_size):
         array = combined_mem[mem_line*4 : (mem_line + 1)*4]

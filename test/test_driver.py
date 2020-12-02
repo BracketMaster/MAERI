@@ -30,7 +30,7 @@ def quick_compare(l1, l2):
     return diffs_by_index
 
 lines_in_KiB = 1024//driver.mem_width
-KiBs = (driver.mem_width * driver.mem_depth)//1024
+KiBs = 1
 data = [r(0, 0xFF) for _ in range(KiBs * 1024)]
 
 def write_data():

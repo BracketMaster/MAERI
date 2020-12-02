@@ -31,6 +31,13 @@ brew install bracketmaster/rtl/yosys
 brew install SRI-CSL/sri-csl/yices2
 ```
 
+## Caveats
+On MacOS BigSur, you might have install numpy manually:
+```bash
+brew install openblas
+OPENBLAS="$(brew --prefix openblas)" pip3 install numpy
+```
+
 # Installing
 
 You should probably use a virtual environment.

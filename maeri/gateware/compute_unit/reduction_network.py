@@ -62,34 +62,31 @@ class ReductionNetwork(Elaboratable):
                 Signal(signed(INPUT_WIDTH), 
                     name=f"inject_port_{port}"))
 
-    def elaborate(self, platform):
-        m = Module()
-
         # instantiate adder_nodes in tree
         self.adders = adders = []
         for node in self.skeleton.adder_nodes:
-            # generate adder instance
-            submod = AdderNode(node.id, self.INPUT_WIDTH)
+            # generate and append adder instance
+            adders += [AdderNode(node.id, self.INPUT_WIDTH)]
             
-            # add generated adder as named submodule
-            setattr(m.submodules, f"adder_node{node.id}", submod)
-            
-            # pop onto adders list for easy access
-            adders += [submod]
-
         # instantiate mult_nodes in tree
         self.mults = mults = []
         for node in self.skeleton.mult_nodes:
-            # generate adder instance
-            submod = MultNode(node.id, self.INPUT_WIDTH)
-            
+            # generate and append mult instance
+            mults += [MultNode(node.id, self.INPUT_WIDTH)]
+
+    def elaborate(self, platform):
+        m = Module()
+
+        adders = self.adders
+        mults = self.mults
+
+        for node in adders:
             # add generated adder as named submodule
-            setattr(
-                m.submodules, f"mult_node{node.id}", submod
-                )
-            
-            # pop onto adders list for easy access
-            mults += [submod]
+            setattr(m.submodules, f"adder_node{node.ID}", node)
+
+        for node in mults:
+            # add generated adder as named submodule
+            setattr(m.submodules, f"mult_node{node.ID}", node)
         
         # combine adders and mults into one list
         all_nodes_hw = adders + mults

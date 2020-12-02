@@ -34,6 +34,7 @@ class SimDriver():
         self.mem_width = config['b_in_line']
         self.mem_depth = config['m_depth']
         self.ports = config['ports']
+        self.no_mults = config['no.mults']
         self.packets_in_mem = (self.mem_depth * self.mem_width)//self.max_packet_size
         self.mem_size = self.mem_depth * self.mem_width
     
@@ -87,7 +88,7 @@ class SimDriver():
         self.sim.run()
         self.data = [int(el) for el in self.data]
 
-        return self.data
+        return self.data[0]
     
     def inject(self, data):
         yield from inject_packet(data, self.top.serial_link.rx, self.max_packet_size)
