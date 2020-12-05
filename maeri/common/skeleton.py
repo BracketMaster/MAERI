@@ -37,7 +37,7 @@ Example:
 """
 
 from maeri.common.node import Node
-from math import log
+from math import log2, floor
 from functools import reduce
 
 class Skeleton():
@@ -82,7 +82,10 @@ class Skeleton():
 
             # add nodes to tree list
             for i in range(1,2 ** depth):
-                tree.append(Node(i))
+                tree.append(Node(
+                    id=i,
+                    latency=(depth - floor(log2(i)))
+                    ))
             
             # partition node types
             self.all_nodes = tree[1:]
@@ -106,10 +109,10 @@ class Skeleton():
             for (node1, node2) in zip(adder_nodes[2::2], adder_nodes[3::2]):
 
                 # is node1 or node2 an edge Node?
-                if (log(node1.id + 1, 2) % 1) == 0:
+                if (log2(node1.id + 1) % 1) == 0:
                     continue
 
-                if (log(node2.id, 2) % 1) == 0:
+                if (log2(node2.id) % 1) == 0:
                     continue
 
                 self.adder_forwarding_links.append((node1, node2))
@@ -128,7 +131,7 @@ class Skeleton():
 
             # validate that there is a valid number
             # of injection ports 
-            if (log(num_ports, 2) % 1 != 0):
+            if (log2(num_ports) % 1 != 0):
                 raise ValueError("argument: num_ports must be "+
                                 "a power of two")
             if (num_ports <= 0):
@@ -178,11 +181,11 @@ class Skeleton():
 
         print()
         for node in self.adder_nodes:
-            print(f"ADDER NODE: ID {node.id}")
+            print(f"ADDER NODE: ID {node.id} : LATENCY {node.latency}")
 
         print()
         for node in self.mult_nodes:
-            print(f"MULT NODE: ID:{node.id}")
+            print(f"MULT NODE: ID {node.id} : LATENCY {node.latency}")
 
         print()
         for node1, node2 in self.adder_forwarding_links:

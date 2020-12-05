@@ -205,22 +205,22 @@ class Top(Elaboratable):
                 # and the weight values of the mult nodes
                 m.d.comb += state.eq(State.configure_states)
 
-                state_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
-                state_node_offset = Signal.like(self.rn.config_ports_in[0].addr)
+                state_address_offset = Signal.like(self.rn.config_bus_ports[0].addr)
+                state_node_offset = Signal.like(self.rn.config_bus_ports[0].addr)
 
                 # access memory with parsed_address
                 m.d.comb += mem_adaptor.mem_line_byte_select.eq(0)
                 m.d.comb += mem_adaptor.mem_line_addr.eq(parsed_address + state_address_offset)
 
-                assert(len(self.rn.config_ports_in) == self.bytes_in_line)
-                for index, port in enumerate(self.rn.config_ports_in):
+                assert(len(self.rn.config_bus_ports) == self.bytes_in_line)
+                for index, port in enumerate(self.rn.config_bus_ports):
                     m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
                     m.d.comb += port.addr.eq(index + state_node_offset)
                 
                 iterations = -(-self.num_nodes//self.bytes_in_line)
 
                 with m.If(mem_adaptor.read_byte_ready):
-                    for port in self.rn.config_ports_in:
+                    for port in self.rn.config_bus_ports:
                         m.d.comb += port.en.eq(1)
                         m.d.sync += state_address_offset.eq(state_address_offset + 1)
                         m.d.sync += state_node_offset.eq(state_node_offset + self.bytes_in_line)
@@ -238,8 +238,8 @@ class Top(Elaboratable):
                 # this state configures the state of the mult nodes
                 m.d.comb += state.eq(State.configure_weights)
 
-                weight_address_offset = Signal.like(self.rn.config_ports_in[0].addr)
-                addr_shape = self.rn.config_ports_in[0].addr.shape().width
+                weight_address_offset = Signal.like(self.rn.config_bus_ports[0].addr)
+                addr_shape = self.rn.config_bus_ports[0].addr.shape().width
                 base_mem = (self.num_adders//self.bytes_in_line)*self.bytes_in_line
                 weight_node_offset = Signal(addr_shape, reset = base_mem)
 
@@ -248,15 +248,15 @@ class Top(Elaboratable):
                 m.d.comb += mem_adaptor.mem_line_byte_select.eq(0)
                 m.d.comb += mem_adaptor.mem_line_addr.eq(parsed_address + weight_address_offset)
 
-                assert(len(self.rn.config_ports_in) == self.bytes_in_line)
-                for index, port in enumerate(self.rn.config_ports_in):
+                assert(len(self.rn.config_bus_ports) == self.bytes_in_line)
+                for index, port in enumerate(self.rn.config_bus_ports):
                     m.d.comb += port.data.eq(self.read_port.data[index*8 : (index + 1)*8])
                     m.d.comb += port.addr.eq(index + weight_node_offset)
                 
                 iterations = -(-self.num_mults//self.bytes_in_line)
 
                 with m.If(mem_adaptor.read_byte_ready):
-                    for port in self.rn.config_ports_in:
+                    for port in self.rn.config_bus_ports:
                         m.d.comb += port.en.eq(1)
                         m.d.comb += port.set_weight.eq(1)
                         m.d.sync += weight_address_offset.eq(weight_address_offset + 1)
@@ -281,18 +281,22 @@ class Top(Elaboratable):
                 m.d.comb += state.eq(State.debug)
 
                 # fecthed parameters
-                start_address = 0
-                start_address_offset = 0
-                length = 5#self.num_nodes
+                start_address = 253
+                # TODO : make this signal only two bits
+                start_address_offset = 1
+                length = 9#self.num_nodes
 
                 # internal parameters
                 # TODO : debug_counter would become the length of the
                 # FIFO depth
                 end_address_byte = (start_address << log2_bytes_in_mem_line) \
                     + (start_address_offset - 1) + length
+                end_address_offset = end_address_byte & 3
                 end_address_line = end_address_byte >> log2_bytes_in_mem_line
                 print(f"start_address = {start_address}")
+                print(f"start_address_offset = {start_address_offset}")
                 print(f"end_address_line = {end_address_line}")
+                print(f"end_address_offset = {end_address_offset}")
 
                 with m.FSM(name="DEBUG_STORE"):
                     done = Signal()
@@ -333,21 +337,29 @@ class Top(Elaboratable):
                     with m.State("STORE"):
                         store_word = Array([Signal(8,name=f"store_word_byte_{_}") 
                             for _ in range(self.bytes_in_line)])
+                        # TODO : change this as necessary
                         node_states = Array([node.state for node in (self.rn.adders + self.rn.mults)])
+                        test_data = Array([_ for _ in range(10)])
+                        data = node_states
 
                         num_words = end_address_line - start_address + 1
                         print(f"num_words = {num_words}")
                         word_counter = Signal(range(num_words))
-                        byte_counter = Signal(range(self.bytes_in_line))
+                        # TODO : range parameter should be the cache length
+                        byte_counter = Signal(range(64))
+                        sub_word_select = byte_counter[:2]
                         with m.FSM(name="STORE_MACHINERY"):
                             with m.State("BUILD_WORD"):
-                                m.d.sync += store_word[byte_counter].eq(node_states[byte_counter])
-                                
-                                with m.If(byte_counter == (self.bytes_in_line - 1)):
-                                    m.d.sync += byte_counter.eq(0)
-                                    m.next = "START_WRITE"
+                                with m.If((word_counter == 0) & (sub_word_select < start_address_offset)):
+                                    m.d.sync += store_word[sub_word_select].eq(first_word[sub_word_select])
+                                with m.Elif((word_counter == (num_words -1)) & (sub_word_select > end_address_offset)):
+                                    m.d.sync += store_word[sub_word_select].eq(last_word[sub_word_select])
                                 with m.Else():
-                                    m.d.sync += byte_counter.eq(byte_counter + 1)
+                                    m.d.sync += store_word[sub_word_select].eq(data[byte_counter])
+                                
+                                m.d.sync += byte_counter.eq(byte_counter + 1)
+                                with m.If(sub_word_select == (self.bytes_in_line - 1)):
+                                    m.next = "START_WRITE"
                             
                             with m.State("START_WRITE"):
                                 m.d.comb += self.write_port.addr.eq(start_address + word_counter)
@@ -365,6 +377,7 @@ class Top(Elaboratable):
                                     with m.If(word_counter == (num_words - 1)):
                                         m.d.comb += done.eq(1)
                                         m.d.sync += word_counter.eq(0)
+                                        m.d.sync += byte_counter.eq(0)
                                     with m.Else():
                                         m.d.sync += word_counter.eq(word_counter + 1)
 
@@ -374,13 +387,6 @@ class Top(Elaboratable):
                 with m.If(done):
                     m.next = "FETCH_OP"
                     m.d.sync += pc.eq(pc + 1)
-
-                #with m.If(debug_counter == (debug_length - 1)):
-                #    m.d.sync += pc.eq(pc + 1)
-                #    m.d.sync += debug_counter.eq(0)
-                #    m.next = "FETCH_OP"
-                #with m.Else():
-                #    m.d.sync += debug_counter.eq(debug_counter + 1)
 
             with m.State("RUN"):
                 m.d.comb += state.eq(State.run)

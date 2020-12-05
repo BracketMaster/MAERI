@@ -46,6 +46,8 @@ class Sim(Elaboratable):
 
         # assemble ops
         init = assemble(ops)
+        init = init[:-3] + [0xFACEB00C, 0xDEADBEEF, 0xFEEDFACE]
+        print(f"len(init) = {len(init)}")
 
         # attach and initialize mem
         width = 32

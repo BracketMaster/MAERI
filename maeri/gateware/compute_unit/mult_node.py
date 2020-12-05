@@ -11,9 +11,10 @@ from maeri.gateware.compute_unit.config_bus import ConfigBus
 from maeri.common.helpers import print_sig
 
 class MultNode(Elaboratable):
-    def __init__(self, ID, INPUT_WIDTH=8):
+    def __init__(self, ID, LATENCY, INPUT_WIDTH=8):
         self.INPUT_WIDTH = INPUT_WIDTH
         self.ID = ID
+        self.LATENCY = LATENCY
 
         # inputs
         self.Inject_in = Signal(INPUT_WIDTH)
@@ -30,9 +31,12 @@ class MultNode(Elaboratable):
 
         # expose some internals
         self.state = Signal(InjectEn)
+        self.latency = Signal(4)
 
     def elaborate(self,platform):
         m = Module()
+
+        m.d.comb += self.latency.eq(self.LATENCY)
 
         # internals
         inject_en = self.state

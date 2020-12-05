@@ -11,7 +11,7 @@ from maeri.customize.adder import Adder3
 from maeri.gateware.compute_unit.config_bus import ConfigBus
 
 class AdderNode(Elaboratable):
-    def __init__(self,ID, INPUT_WIDTH=8):
+    def __init__(self,ID, LATENCY, INPUT_WIDTH=8):
         """
         Implements an adder node that follows the
         state table described in `maeri.common.enums`.
@@ -22,6 +22,7 @@ class AdderNode(Elaboratable):
         """
         self.INPUT_WIDTH = INPUT_WIDTH
         self.ID = ID
+        self.LATENCY = LATENCY
 
         # inputs
         self.lhs_in = Signal(signed(INPUT_WIDTH))
@@ -45,10 +46,13 @@ class AdderNode(Elaboratable):
 
         # exposed internals
         self.state = Signal(ConfigUp)
+        self.latency = Signal(4)
 
     
     def elaborate(self, platform):
         m = Module()
+
+        m.d.comb += self.latency.eq(self.LATENCY)
         
         # internals
         # the adder node can have 5 states
