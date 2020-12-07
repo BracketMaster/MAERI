@@ -15,11 +15,12 @@ class State(IntEnum):
     configure_states = 2
     configure_weights = 3
     configure_collectors = 4
-    load_features = 5
-    store_features = 6
-    run = 7
-    debug = 8
-    fetch = 9
+    configure_relus = 5
+    load_features = 6
+    store_features = 7
+    run = 8
+    debug = 9
+    fetch = 10
 
 class Top(Elaboratable):
 
@@ -69,6 +70,7 @@ class Top(Elaboratable):
         # call of each opcode functions properly
         opcodes.InitISA(_bytes_in_address=q,
                         _num_nodes=self.num_nodes,
+                        _num_ports=self.num_ports,
                         _num_adders=self.num_adders,
                         _num_mults=self.num_mults,
                         _input_width=INPUT_WIDTH
@@ -138,6 +140,10 @@ class Top(Elaboratable):
                             m.d.sync += num_params.eq(opcodes.ConfigureWeights.num_params())
                             m.d.sync += pc.eq(pc + 1)
                             m.next = 'FETCH_PARAMS'
+                        with m.Case(opcodes.ConfigureCollectors.op):
+                            m.d.sync += num_params.eq(opcodes.ConfigureCollectors.num_params())
+                            m.d.sync += pc.eq(pc + 1)
+                            m.next = 'FETCH_PARAMS'
                         with m.Case(opcodes.LoadFeatures.op):
                             m.d.sync += pc.eq(pc + 1)
                             m.next = 'FETCH_PARAMS'
@@ -191,6 +197,8 @@ class Top(Elaboratable):
                                 m.next = 'CONFIGURE_STATES'
                             with m.Case(opcodes.ConfigureWeights.op):
                                 m.next = 'CONFIGURE_WEIGHTS'
+                            with m.Case(opcodes.ConfigureCollectors.op):
+                                m.next = 'CONFIGURE_COLLECTORS'
                             with m.Case(opcodes.LoadFeatures.op):
                                 m.next = 'LOAD_FEATURES'
                             with m.Case(opcodes.StoreFeatures.op):
@@ -270,6 +278,34 @@ class Top(Elaboratable):
 
                 with m.If(weight_address_offset != (iterations)):
                     m.d.comb += mem_adaptor.read_rq.eq(1)
+
+            with m.State("CONFIGURE_COLLECTORS"):
+                # this state configures the state of the mult nodes
+                m.d.comb += state.eq(State.configure_collectors)
+
+                collect_address_offset = Signal.like(self.rn.select_output_node_ports[0])
+
+                # access memory with parsed_address
+                m.d.comb += mem_adaptor.read_rq.eq(1)
+                m.d.comb += mem_adaptor.mem_line_byte_select.eq(0)
+                m.d.comb += mem_adaptor.mem_line_addr.eq(parsed_address + collect_address_offset)
+
+                chunked_port_selects = []
+                num_chunks = self.rn.num_ports//self.bytes_in_line
+                with m.If(mem_adaptor.read_byte_ready):
+                    with m.If(collect_address_offset == (num_chunks - 1)):
+                        m.d.sync += collect_address_offset.eq(0)
+                        m.next = "FETCH_OP"
+                    with m.Else():
+                        m.d.sync += collect_address_offset.eq(collect_address_offset + 1)
+
+                    for chunk in range(num_chunks):
+                        with m.If(collect_address_offset == chunk):
+                            port_slice = slice(chunk*self.bytes_in_line , (chunk + 1)*self.bytes_in_line)
+                            port_slice_list = self.rn.select_output_node_ports[port_slice]
+                            for index, select_port in enumerate(port_slice_list):
+                                data_slice = slice(index*self.bytes_in_line , (index + 1)*self.bytes_in_line)
+                                m.d.sync += select_port.eq(self.read_port.data[data_slice])
 
             with m.State("LOAD_FEATURES"):
                 m.d.comb += state.eq(State.load_features)

@@ -7,10 +7,12 @@ bytes_in_address = None
 num_nodes = None
 num_adders = None
 num_mults = None
+num_ports = None
 INPUT_WIDTH = None
 
 class InitISA():
-    def __init__(self, _bytes_in_address, _num_nodes, _num_adders, _num_mults, _input_width):
+    def __init__(self, _bytes_in_address, _num_nodes, 
+            _num_adders, _num_mults, _input_width, _num_ports):
         global bytes_in_address
         bytes_in_address = _bytes_in_address
 
@@ -23,6 +25,9 @@ class InitISA():
         global num_mults
         num_mults = _num_mults
 
+        global num_ports
+        num_ports = _num_ports
+
         global INPUT_WIDTH
         INPUT_WIDTH = _input_width
 
@@ -34,10 +39,11 @@ class Opcodes(IntEnum):
     configure_states = 2
     configure_weights = 3
     configure_collectors = 4
-    load_features = 5
-    store_features = 6
-    run = 7
-    debug = 8
+    configure_relus = 5
+    load_features = 6
+    store_features = 7
+    run = 8
+    debug = 9
 
 class Reset():
     op = Opcodes.reset
@@ -71,6 +77,23 @@ class ConfigureWeights():
             assert(min <= weight <= max)
 
         self.weights = weights
+
+    @staticmethod
+    def num_params():
+        return bytes_in_address
+
+class ConfigureCollectors():
+    op = Opcodes.configure_collectors
+
+    def __init__(self, node_ids):
+        assert(len(node_ids) == num_nodes)
+        min = 0
+        max = 255
+
+        for node_id in node_ids:
+            assert(min <= node_id <= max)
+
+        self.node_ids = node_ids
 
     @staticmethod
     def num_params():

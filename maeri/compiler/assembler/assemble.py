@@ -2,9 +2,11 @@ from maeri.compiler.assembler import opcodes
 from maeri.compiler.assembler.opcodes import Opcodes, ConfigureStates
 from maeri.compiler.assembler.opcodes import ConfigureWeights, LoadFeatures
 from maeri.compiler.assembler.opcodes import StoreFeatures, Run, Debug
+from maeri.compiler.assembler.opcodes import ConfigureCollectors
 from maeri.compiler.assembler.signs import to_unsigned
 
-valid_ops = {ConfigureStates, ConfigureWeights, LoadFeatures, StoreFeatures, Run, Debug}
+valid_ops = {ConfigureStates, ConfigureWeights, LoadFeatures, 
+            StoreFeatures, Run, Debug, ConfigureCollectors}
 
 DEBUG = False
 
@@ -27,6 +29,8 @@ def assemble(list_of_ops, as_bytes=False):
         raise RuntimeError("CURRENTLY ONLY SUPPORTING TREES OF DEPTH 6")
     if opcodes.INPUT_WIDTH != 8:
         raise RuntimeError("CURRENTLY ONLY SUPPORTING WIDTHS OF 8")
+    if opcodes.num_ports != 16:
+        raise RuntimeError("CURRENTLY ONLY SUPPORTING TREES WITH 16 PORTS")
 
     for op in list_of_ops:
         assert(type(op) in valid_ops)
@@ -48,6 +52,14 @@ def assemble(list_of_ops, as_bytes=False):
             weights = [to_unsigned(weight, opcodes.INPUT_WIDTH) for weight in weights]
             config_mem += weights
             config_offset += 36//4
+
+        if type(op) in {ConfigureCollectors}:
+            instr_mem += [opcodes.ConfigureCollectors.op]
+            address = list(int(config_offset).to_bytes(3, 'little'))
+            instr_mem += address
+
+            config_mem += [int(conf) for conf in op.states] + [0]
+            config_offset += 16//4
         
         if type(op) in {Debug}:
             instr_mem += [opcodes.Debug.op]

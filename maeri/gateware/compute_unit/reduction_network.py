@@ -11,7 +11,7 @@ from nmigen import Memory
 
 class ReductionNetwork(Elaboratable):
     def __init__(self, depth, num_ports, INPUT_WIDTH, 
-            bytes_in_line, VERBOSE = False, fifo_depth = 64):
+            bytes_in_line, VERBOSE = False):
         """
         Attributes:
         ===========
@@ -29,7 +29,7 @@ class ReductionNetwork(Elaboratable):
         self.r_sram_en:
         self.run:
         self.length:
-        self.relu_en:
+        self.relu_en_by_port:
         
         outputs:
         self.r_sram_data
@@ -47,7 +47,6 @@ class ReductionNetwork(Elaboratable):
         # common parameters
         self.num_ports = num_ports
         self.INPUT_WIDTH = INPUT_WIDTH
-        self.fifo_depth = fifo_depth
 
 
         # skeleton on top of which maeri will be created
@@ -62,8 +61,8 @@ class ReductionNetwork(Elaboratable):
         # moves data from injection FIFOs over the
         # reduction network to the collection FIFOs
         self.run = Signal()
-        self.length = Signal(range(fifo_depth + depth))
-        self.relu_en = Signal()
+        self.length = Signal(6)
+        self.relu_en_by_port = [Signal() for port in range(num_ports)]
         self.done = Signal()
 
         # control parameters -- outputs
@@ -84,7 +83,7 @@ class ReductionNetwork(Elaboratable):
         self.select_output_node_ports = []
         for port in range(num_ports):
             self.select_output_node_ports.append(
-                Signal(signed(INPUT_WIDTH), 
+                Signal(INPUT_WIDTH, 
                     name=f"select_port_{port}"))
 
         # create list of config ports
@@ -124,6 +123,11 @@ class ReductionNetwork(Elaboratable):
         for ID, sram in enumerate(self.collection_srams):
             setattr(m.submodules, f"collection_sram_{ID}", sram)
         
+        # each collect port has a done signal
+        done_by_collect_port = Array([Signal() for port in range(self.num_ports)])
+        injection_addr = Signal.like(self.length)
+        injection_finished = Signal()
+        
         # build multiplexer for  selection of particular 
         # injection fifo
         wp_en_by_injection_sram = Array([sram.wp_en for sram in self.injection_srams])
@@ -131,16 +135,46 @@ class ReductionNetwork(Elaboratable):
         m.d.comb += wp_en_by_injection_sram[self.sel_sram].eq(self.w_sram_en)
         m.d.comb += wp_data_by_injection_sram[self.sel_sram].eq(self.w_sram_data)
 
-        # build multiplexer for  selection of particular 
-        # collection fifo
+        # inject data into reduction tree
+        m.d.comb += [sram.rp_addr.eq(injection_addr) for sram in self.injection_srams]
+        with m.If(self.run):
+            increment_condition_1 = self.run
+            increment_condition_2 = injection_addr < (self.length - 1)
+            with m.If(increment_condition_1 & increment_condition_2):
+                m.d.comb += [sram.rp_en.eq(1) for sram in self.injection_srams]
+                m.d.sync += injection_addr.eq(injection_addr + 1)
+            with m.Elif(increment_condition_1):
+                m.d.sync += injection_addr.eq(injection_addr)
+            with m.Else():
+                m.d.sync += injection_addr.eq(0)
+        
+        # collect data from reduction tree
+        latency_by_node = Array([node.latency for node in (adders + mults)])
+        addr_by_collector = [Signal.like(self.length) for collector in range(self.num_ports)]
+        assert(len(addr_by_collector) == len(self.collection_srams))
+        zipped_list =  zip(self.collection_srams, addr_by_collector, self.select_output_node_ports)
+        for sram, collector_addr, selected_port in zipped_list:
+            m.d.comb += sram.wp_addr.eq(collector_addr)
+            increment_condition_1 = self.run
+            increment_condition_2 = injection_addr > latency_by_node[selected_port]
+            increment_condition_3 = collector_addr < (self.length - 1)
+            with m.If(increment_condition_1 & increment_condition_2 & increment_condition_3):
+                m.d.sync += collector_addr.eq(collector_addr + 1)
+                m.d.comb += sram.wp_en.eq(1)
+            with m.Elif(increment_condition_1):
+                # TODO : test if "pass" works
+                m.d.sync += collector_addr.eq(collector_addr)
+            with m.Else():
+                m.d.sync += collector_addr.eq(0)
+
+        # earlier, we expose once read port width-matched to main
+        # memory width, namely, self.r_sram_data
+        # below is the logic for choosing which internal sram self.r_sram_data
+        # is connected to
         rp_en_by_collection_sram = Array([sram.rp_en for sram in self.collection_srams])
         rp_data_by_collection_sram = Array([sram.rp_data for sram in self.collection_srams])
         m.d.comb += rp_en_by_collection_sram[self.sel_sram].eq(self.r_sram_en)
         m.d.comb += self.r_sram_data.eq(rp_data_by_collection_sram[self.sel_sram])
-
-        collection_counter = Signal.like(self.length)
-        with m.If(self.run):
-            m.d.sync += collection_counter.eq(collection_counter + 1)
 
         for node in mults:
             # add generated adder as named submodule
@@ -234,7 +268,7 @@ class ReductionNetwork(Elaboratable):
         ports += [self.r_sram_en]
         ports += [self.run]
         ports += [self.length]
-        ports += [self.relu_en]
+        ports += self.relu_en_by_port
 
         # outputs
         ports += [self.r_sram_data]
